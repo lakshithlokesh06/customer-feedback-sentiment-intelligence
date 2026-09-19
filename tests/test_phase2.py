@@ -144,5 +144,6 @@ def test_numeric_review_column_does_not_unlock_analytics():
     assert app.session_state['prepared'].quality['Valid Reviews'] == 0
     assert app.error
     app.sidebar.radio[0].set_value('Sentiment Analytics').run()
-    assert 'select a review column' in app.info[0].value
+    assert 'Run sentiment analysis from Overview' in app.info[0].value
+    assert len(app.get('plotly_chart')) == 0
     assert not app.exception

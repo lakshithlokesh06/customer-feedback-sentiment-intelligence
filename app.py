@@ -1,4 +1,4 @@
-"""Phase 3 Streamlit interface with explicit offline VADER analysis."""
+"""Phase 4 Streamlit interface with explicit offline VADER analysis."""
 
 import logging
 import hashlib
@@ -14,6 +14,7 @@ from src.config import POSITIVE_THRESHOLD, NEGATIVE_THRESHOLD, SENTIMENT_COLORS
 from src.sentiment.analyzer import analyze_dataframe, sentiment_summary, SentimentError
 from src.data.loader import DataValidationError, read_csv_safely
 from src.utils.helpers import format_count
+from src.ui.analytics import render_analytics_page
 
 logger = logging.getLogger(__name__)
 st.set_page_config(page_title=APP_TITLE, page_icon="◈", layout="wide")
@@ -52,7 +53,7 @@ def render_sidebar() -> str:
         else:
             st.caption("No dataset loaded")
         st.divider()
-        st.caption("PHASE 3 · SENTIMENT ANALYSIS")
+        st.caption("PHASE 4 · SENTIMENT ANALYTICS")
         st.caption("Upload, prepare, and analyze review text from Overview.")
     return page
 
@@ -76,12 +77,12 @@ def render_analytics() -> None:
     left, right = st.columns(2)
     with left, st.container(border=True):
         st.markdown("**Sentiment distribution**")
-        st.caption("PLANNED")
-        st.info("Positive, neutral, and negative review distribution charts are planned for a future phase.")
+        st.caption("SENTIMENT ANALYTICS")
+        st.info("Open Sentiment Analytics after scoring to explore label shares, compound scores, and VADER components.")
     with right, st.container(border=True):
         st.markdown("**Sentiment over time**")
-        st.caption("PLANNED")
-        st.info("Explore changes in customer sentiment across review dates in a future phase.")
+        st.caption("SENTIMENT ANALYTICS")
+        st.info("Open Sentiment Analytics to compare trends, categories, and ratings when compatible metadata is available.")
 
 
 def render_reviews(data: pd.DataFrame | None) -> None:
@@ -242,10 +243,12 @@ def main() -> None:
         with kpi_area:
             render_kpis(data)
         render_analytics()
+    elif page == "Sentiment Analytics":
+        render_analytics_page()
     elif page == "About":
         st.subheader("About this project")
         st.write("A portfolio project for exploring customer experience through review data.")
-        st.markdown("**Available now:** CSV uploads, sample data, dataset profiling, explicit review-column selection, review quality checks, and explicit VADER sentiment scoring.")
+        st.markdown("**Available now:** CSV uploads, sample data, dataset profiling, explicit review-column selection, review quality checks, explicit VADER sentiment scoring, and an interactive sentiment analytics dashboard.")
         st.markdown("**Planned:** interactive insights, review filters, and exports.")
         st.caption("No external paid API, LLM, authentication, or database is used.")
     else:
@@ -258,14 +261,11 @@ def main() -> None:
                 render_sentiment_preview()
             else:
                 render_reviews(prepared.data)
-        elif page == "Sentiment Analytics":
-            render_kpis(st.session_state.get("dataset"))
-            render_analytics()
         else:
             st.subheader("Text insights")
             st.info("Review data is ready. Keywords and text analysis are planned for a future phase.")
     st.divider()
-    st.caption("Phase 3 · Offline VADER sentiment analysis")
+    st.caption("Phase 4 · Sentiment analytics")
 
 
 if __name__ == "__main__":

@@ -2,12 +2,12 @@
 
 Transform customer feedback into actionable sentiment insights.
 
-A Python and Streamlit portfolio project for exploring customer review data. **Phase 3 adds offline VADER sentiment classification to the existing CSV upload and preparation workflow.** Sentiment comes from review text only; no machine-learning training or LLM is used.
+A Python and Streamlit portfolio project for exploring customer review data. **Phase 4 adds an interactive sentiment analytics dashboard to the existing upload, preparation, and offline VADER workflow.** Sentiment comes from review text only; no machine-learning training or LLM is used.
 
-## Available in Phase 3
+## Available in Phase 4
 
 - Wide dashboard with sidebar navigation: Overview, Sentiment Analytics, Text Insights, Review Explorer, and About.
-- Helpful empty states, actual sentiment KPIs after analysis, and clearly labeled planned chart areas.
+- Helpful empty states, actual sentiment KPIs after analysis, and real Plotly analytics in the Sentiment Analytics page.
 - Load and clear a bundled fictional sample dataset; preview original records and their count.
 - Reusable CSV validation for file extensions, size, encoding, headers, row consistency, and empty datasets, with readable errors.
 - CSV upload and switching between uploaded and sample datasets without restarting.
@@ -19,7 +19,7 @@ A Python and Streamlit portfolio project for exploring customer review data. **P
 
 ## Planned features
 
-Sentiment trend/distribution charts, text insights, review filtering, and analyzed-data exports remain planned. No paid API, LLM, authentication, or database is used.
+Text insights, individual review filtering, and analyzed-data exports remain planned. No paid API, LLM, authentication, or database is used.
 
 ## Tech stack
 
@@ -44,9 +44,14 @@ customer-feedback-sentiment-intelligence/
 │   │   ├── __init__.py
 │   │   └── analyzer.py
 │   ├── analytics/
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   └── sentiment_metrics.py
 │   ├── visualization/
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   └── charts.py
+│   ├── ui/
+│   │   ├── __init__.py
+│   │   └── analytics.py
 │   └── utils/
 │       ├── __init__.py
 │       └── helpers.py
@@ -59,7 +64,8 @@ customer-feedback-sentiment-intelligence/
 │   ├── test_app.py
 │   ├── test_loader.py
 │   ├── test_phase2.py
-│   └── test_sentiment.py
+│   ├── test_sentiment.py
+│   └── test_analytics.py
 ├── .streamlit/
 │   └── config.toml
 ├── .env.example
@@ -69,7 +75,7 @@ customer-feedback-sentiment-intelligence/
 └── README.md
 ```
 
-The data layer has no Streamlit dependency. The sentiment service owns offline scoring and output preservation; analytics and visualization packages reserve simple boundaries for later phases. `app.py` owns the interface and session state; `src/config.py` owns shared application constants. Native Streamlit theming lives in `.streamlit/config.toml`.
+The data layer has no Streamlit dependency. The sentiment service owns offline scoring and output preservation; analytics aggregation, Plotly visualization, and Streamlit page rendering are separated into their own modules. `app.py` owns the interface and session state; `src/config.py` owns shared application constants. Native Streamlit theming lives in `.streamlit/config.toml`.
 
 ## Local installation
 
@@ -141,7 +147,28 @@ Scoring runs only on an explicit button click. Results live in the current sessi
 
 ### Sentiment limitations
 
-VADER is a rule/lexicon-based model primarily designed for English. Non-English text is accepted without a reliability claim. Sarcasm, context, domain-specific language, and mixed sentiment can be misclassified. Scores describe text sentiment, not factual correctness, human intent, or a calibrated probability. Case, punctuation, URLs, and emoji are passed through after Phase 2 whitespace trimming. Numeric-only text remains unusable under Phase 2 rules. Very short feedback (including a single emoji) can be excluded by the existing minimum length. Long reviews are supported within existing CSV limits, but large amounts of unique text take longer to process. There are no sentiment charts, topic modeling, aspect analysis, exports, model training, or LLM features in this phase.
+VADER is a rule/lexicon-based model primarily designed for English. Non-English text is accepted without a reliability claim. Sarcasm, context, domain-specific language, and mixed sentiment can be misclassified. Scores describe text sentiment, not factual correctness, human intent, or a calibrated probability. Case, punctuation, URLs, and emoji are passed through after Phase 2 whitespace trimming. Numeric-only text remains unusable under Phase 2 rules. Very short feedback (including a single emoji) can be excluded by the existing minimum length. Long reviews are supported within existing CSV limits, but large amounts of unique text take longer to process. There is no topic modeling, aspect analysis, export, model training, or LLM functionality in this phase.
+
+## Sentiment Analytics dashboard
+
+After loading a dataset, selecting its review column, and clicking **Analyze Sentiment**, open **Sentiment Analytics**. The page never triggers scoring automatically. It provides:
+
+- Six KPIs: total source reviews, filtered analyzed reviews, three sentiment counts, and mean compound score.
+- Sentiment counts and percentages, a compound histogram with the unchanged ±0.05 boundaries, and mean VADER component scores.
+- Optional date trends, category comparisons, and rating comparisons when compatible metadata exists.
+- A sentiment-label multiselect and **Reset filters**. Every chart follows the selected labels; original data is unchanged. Empty selections show a helpful message.
+
+`Not analyzed` rows are excluded from counts, percentages, and averages; their exclusion count remains visible. Total Reviews is always the unfiltered source row count. Analytics frames and metadata suggestions are reused within the current session until analysis changes; no uploaded data is cached globally.
+
+### Optional metadata handling
+
+**Dates:** Non-numeric columns with at least 50% parseable date values are offered in a selector, without requiring a column named `date`. Dates normalize to UTC. Invalid/missing dates are omitted only from the trend chart, with a visible count. Day grouping is always available; Week appears for spans of at least seven days, Month for at least 28 days. Weekly buckets begin Monday. Ambiguous date strings follow Pandas parsing conventions; ISO dates are recommended. Numeric timestamps are not auto-interpreted.
+
+**Categories:** Low-cardinality non-numeric columns (at most 50 distinct values) are suggested, excluding selected review text, preparation/output fields, date columns, and obvious ID/text names. Unique-valued columns are omitted unless they have five or fewer categories. The chart and compact table show count, sentiment shares, and mean compound. Up to 15 groups appear, selected by highest analyzed volume and alphabetical ties; missing values have a separate group. These heuristics can omit unusual but meaningful metadata.
+
+**Ratings:** Numeric or numeric-like columns whose names contain `rating`, `stars`, or `score`, with at most 20 distinct values, are offered. A stacked chart compares text sentiment across rating values. Missing/non-numeric ratings are omitted; ratings never change sentiment labels. Mismatch analytics assumes a 1–5 scale only when all numeric ratings across the entire source dataset are integral and within 1–5. A mismatch is rating 4–5 with Negative text, or rating 1–2 with Positive text. Rating 3 and Neutral text do not trigger a mismatch. Other scales skip the mismatch metric with an explanation. A subset of an unknown scale can resemble 1–5, so the UI explicitly labels this assumption. Mismatches are descriptive, not claims of fraud or error.
+
+Charts use consistent semantic colors and responsive full-width sizing. KPIs use two rows of three cards rather than a six-card-wide layout. Text insights, topic extraction, and Phase 5 functionality remain unimplemented.
 
 ## Validation
 

@@ -45,3 +45,8 @@ SENTIMENT_COLORS = {
     "Negative": "color: #993b3b; background-color: #faeeee",
     "Not analyzed": "color: #666666; background-color: #f3f3f3",
 }
+
+SENTIMENT_CHART_COLORS = {'Positive': '#247A59', 'Neutral': '#7B8794', 'Negative': '#B65353'}
+MAX_CHART_CATEGORIES = 15
+MAX_CATEGORY_CARDINALITY = 50
+MAX_RATING_CARDINALITY = 20
