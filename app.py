@@ -1,4 +1,4 @@
-"""Phase 2 Streamlit interface; analysis is intentionally not implemented."""
+"""Phase 3 Streamlit interface with explicit offline VADER analysis."""
 
 import logging
 import hashlib
@@ -9,7 +9,9 @@ import streamlit as st
 from src.config import APP_TITLE, KPI_LABELS, NAVIGATION, SAMPLE_COLUMNS, SAMPLE_DATA_PATH, TAGLINE
 from src.config import MAX_UPLOAD_BYTES, MAX_DATASET_ROWS, PREVIEW_ROWS, MIN_REVIEW_LENGTH, SETUP_MESSAGE
 from src.data.preprocessor import prepare_reviews, review_columns
-from src.data.session import clear_dataset, set_dataset
+from src.data.session import clear_dataset, set_dataset, reset_review_selection
+from src.config import POSITIVE_THRESHOLD, NEGATIVE_THRESHOLD, SENTIMENT_COLORS
+from src.sentiment.analyzer import analyze_dataframe, sentiment_summary, SentimentError
 from src.data.loader import DataValidationError, read_csv_safely
 from src.utils.helpers import format_count
 
@@ -50,13 +52,16 @@ def render_sidebar() -> str:
         else:
             st.caption("No dataset loaded")
         st.divider()
-        st.caption("PHASE 2 · DATA PREPARATION")
-        st.caption("Upload and prepare review data from Overview. Sentiment analysis is planned.")
+        st.caption("PHASE 3 · SENTIMENT ANALYSIS")
+        st.caption("Upload, prepare, and analyze review text from Overview.")
     return page
 
 
 def render_kpis(data: pd.DataFrame | None) -> None:
     """Show real record counts and clearly uncomputed sentiment metrics."""
+    if st.session_state.get("analysis") is not None:
+        render_sentiment_summary()
+        return
     for index, (column, label) in enumerate(zip(st.columns(4), KPI_LABELS)):
         with column:
             with st.container(border=True):
@@ -72,7 +77,7 @@ def render_analytics() -> None:
     with left, st.container(border=True):
         st.markdown("**Sentiment distribution**")
         st.caption("PLANNED")
-        st.info("Positive, neutral, and negative review shares will appear here after analysis is available.")
+        st.info("Positive, neutral, and negative review distribution charts are planned for a future phase.")
     with right, st.container(border=True):
         st.markdown("**Sentiment over time**")
         st.caption("PLANNED")
@@ -82,14 +87,14 @@ def render_analytics() -> None:
 def render_reviews(data: pd.DataFrame | None) -> None:
     """Preview raw sample rows without implying that scoring has happened."""
     st.subheader("Review explorer")
-    st.caption("Inspect original review records. Sentiment labels, filtering, and export are planned.")
+    st.caption("Inspect original review records. Run sentiment analysis from Overview. Filtering and export are planned.")
     if data is None:
         with st.container(border=True):
             st.markdown("**Your customer stories will appear here**")
             st.write("Load the fictional sample dataset from the sidebar to preview the review table.")
     else:
         st.dataframe(data.head(PREVIEW_ROWS), hide_index=True, width="stretch")
-        st.caption(f"{format_count(len(data))} original records · Preview limited to {PREVIEW_ROWS} rows · No sentiment labels or scores have been generated.")
+        st.caption(f"{format_count(len(data))} original records · Preview limited to {PREVIEW_ROWS} rows · Original data is preserved.")
 
 
 def metric_cards(values: dict) -> None:
@@ -139,9 +144,7 @@ def render_setup(data: pd.DataFrame) -> None:
                           index=options.index(selected) if selected in options else None,
                           placeholder="Choose a column containing customer feedback",
                           key=f"review_selector_{st.session_state.get('dataset_revision', 0)}")
-    if column != selected:
-        st.session_state["review_column"] = column
-        st.session_state.pop("prepared", None)
+    reset_review_selection(st.session_state, column)
     if column is None:
         st.info(SETUP_MESSAGE)
         return
@@ -155,12 +158,68 @@ def render_setup(data: pd.DataFrame) -> None:
     if unusable:
         st.warning(f"{unusable:,} rows are unusable. All records are retained with a status; no rows have been removed.")
     if prepared.quality["Valid Reviews"]:
-        st.success("Review data is prepared for the next phase. Sentiment analysis has not been run.")
+        st.success("Review data is prepared. Use Analyze Sentiment below to score valid reviews.")
     else:
         st.error("This column has no usable reviews. Select another column or load another dataset.")
     with st.expander("Inspect prepared reviews and row status"):
         st.dataframe(prepared.data.head(PREVIEW_ROWS), hide_index=True, width="stretch")
         st.caption(f"Added columns: {prepared.text_column}, {prepared.status_column}. Status: valid, missing, empty, non_text, or too_short.")
+
+
+def render_sentiment_summary() -> None:
+    """Show actual label counts and shares of analyzed reviews."""
+    summary = sentiment_summary(st.session_state["analysis"])
+    metric_cards(summary)
+    total = summary["Analyzed Reviews"]
+    if total:
+        st.caption("Share of analyzed reviews: " + " · ".join(
+            f"{label}: {summary[f'{label} Reviews'] / total:.1%}"
+            for label in ("Positive", "Neutral", "Negative")
+        ))
+
+
+def render_sentiment_preview() -> None:
+    """Display bounded, adaptive results with restrained sentiment colors."""
+    result = st.session_state["analysis"]
+    st.subheader("Sentiment results")
+    review = st.session_state["review_column"]
+    preferred = [review, *result.columns.values(), st.session_state["prepared"].status_column]
+    preferred += [name for name in ("rating", "date", "product") if name in result.data]
+    names = list(dict.fromkeys(preferred))
+    preview = result.data[names].head(PREVIEW_ROWS)
+    styled = preview.style.map(lambda value: SENTIMENT_COLORS.get(value, ""),
+                               subset=[result.columns["sentiment_label"]])
+    st.dataframe(styled, hide_index=True, width="stretch")
+    st.caption(f"First {PREVIEW_ROWS} rows at most. Unusable rows are retained as Not analyzed with null scores.")
+    if any(logical != physical for logical, physical in result.columns.items()):
+        st.caption("Existing sentiment columns were preserved; new output names have leading underscores.")
+
+
+def render_analysis_action() -> None:
+    """Run scoring only on a button click; publish results atomically."""
+    prepared = st.session_state.get("prepared")
+    if prepared is None or not prepared.quality["Valid Reviews"]:
+        return
+    if st.button("Analyze Sentiment", type="primary"):
+        try:
+            with st.spinner("Analyzing valid reviews with VADER…"):
+                result = analyze_dataframe(prepared)
+            st.session_state["analysis"] = result
+            st.rerun()
+        except SentimentError as exc:
+            st.error(str(exc))
+        except Exception:
+            logger.exception("Sentiment analysis failed")
+            st.error("Sentiment analysis could not complete. Please retry or use a smaller dataset.")
+    if st.session_state.get("analysis") is not None:
+        st.success("Sentiment analysis complete. Results are retained for this dataset and review column.")
+        render_sentiment_preview()
+    st.caption(
+        f"VADER is a rule/lexicon-based model. Compound ranges from −1 to 1; "
+        f"Positive ≥ {POSITIVE_THRESHOLD}, Negative ≤ {NEGATIVE_THRESHOLD}, otherwise Neutral. "
+        "Scores reflect text sentiment, not factual correctness or human intent. "
+        "VADER is primarily designed for English; multilingual results may be unreliable."
+    )
 
 
 def main() -> None:
@@ -174,17 +233,20 @@ def main() -> None:
         st.subheader("Understand the voice of your customers")
         render_loading()
         data = st.session_state.get("dataset")
-        render_kpis(data)
+        kpi_area = st.container()
         if data is None:
             st.info(SETUP_MESSAGE)
         else:
             render_setup(data)
+            render_analysis_action()
+        with kpi_area:
+            render_kpis(data)
         render_analytics()
     elif page == "About":
         st.subheader("About this project")
         st.write("A portfolio project for exploring customer experience through review data.")
-        st.markdown("**Available now:** CSV uploads, sample data, dataset profiling, explicit review-column selection, and review quality checks.")
-        st.markdown("**Planned:** local sentiment scoring, interactive insights, review filters, and exports.")
+        st.markdown("**Available now:** CSV uploads, sample data, dataset profiling, explicit review-column selection, review quality checks, and explicit VADER sentiment scoring.")
+        st.markdown("**Planned:** interactive insights, review filters, and exports.")
         st.caption("No external paid API, LLM, authentication, or database is used.")
     else:
         prepared = st.session_state.get("prepared")
@@ -192,7 +254,10 @@ def main() -> None:
             st.subheader(page)
             st.info(SETUP_MESSAGE)
         elif page == "Review Explorer":
-            render_reviews(prepared.data)
+            if st.session_state.get("analysis") is not None:
+                render_sentiment_preview()
+            else:
+                render_reviews(prepared.data)
         elif page == "Sentiment Analytics":
             render_kpis(st.session_state.get("dataset"))
             render_analytics()
@@ -200,7 +265,7 @@ def main() -> None:
             st.subheader("Text insights")
             st.info("Review data is ready. Keywords and text analysis are planned for a future phase.")
     st.divider()
-    st.caption("Phase 2 · Data preparation · No sentiment scoring")
+    st.caption("Phase 3 · Offline VADER sentiment analysis")
 
 
 if __name__ == "__main__":

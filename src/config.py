@@ -32,3 +32,16 @@ MAX_DATASET_COLUMNS = 200
 PREVIEW_ROWS = 100
 MIN_REVIEW_LENGTH = 3
 SETUP_MESSAGE = "Load a dataset and select a review column to begin analysis."
+
+POSITIVE_THRESHOLD = 0.05
+NEGATIVE_THRESHOLD = -0.05
+SENTIMENT_COLUMNS = (
+    "sentiment_negative", "sentiment_neutral", "sentiment_positive",
+    "sentiment_compound", "sentiment_label",
+)
+SENTIMENT_COLORS = {
+    "Positive": "color: #17634b; background-color: #e7f3ec",
+    "Neutral": "color: #44546a; background-color: #edf1f6",
+    "Negative": "color: #993b3b; background-color: #faeeee",
+    "Not analyzed": "color: #666666; background-color: #f3f3f3",
+}
