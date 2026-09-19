@@ -7,7 +7,7 @@ from typing import BinaryIO
 
 import pandas as pd
 
-from src.config import MAX_UPLOAD_BYTES
+from src.config import MAX_UPLOAD_BYTES, MAX_DATASET_ROWS, MAX_DATASET_COLUMNS
 
 CSVSource = str | Path | BinaryIO
 
@@ -23,6 +23,10 @@ def validate_csv_file(source: CSVSource, *, max_bytes: int = MAX_UPLOAD_BYTES) -
     """
     if max_bytes <= 0:
         raise ValueError("max_bytes must be positive")
+    if not isinstance(source, (str, Path)) and not all(
+        callable(getattr(source, method, None)) for method in ("read", "seek", "tell")
+    ):
+        raise DataValidationError("Provide a CSV path or a readable binary file.")
     name = str(source) if isinstance(source, (str, Path)) else str(getattr(source, "name", "dataset.csv"))
     if Path(name).suffix.lower() != ".csv":
         raise DataValidationError("Choose a file with a .csv extension.")
@@ -39,7 +43,7 @@ def validate_csv_file(source: CSVSource, *, max_bytes: int = MAX_UPLOAD_BYTES) -
                 source.seek(position)
     except FileNotFoundError:
         raise DataValidationError("The CSV file is missing. Restore it and try again.") from None
-    except (OSError, ValueError, AttributeError):
+    except (OSError, ValueError, AttributeError, TypeError):
         raise DataValidationError("The CSV file could not be read. Check file access and try again.") from None
     if not isinstance(content, bytes):
         raise DataValidationError("Provide a CSV file opened in binary mode.")
@@ -55,7 +59,8 @@ def is_dataset_empty(data: pd.DataFrame) -> bool:
     return data.empty or data.replace(r"^\s*$", pd.NA, regex=True).dropna(how="all").empty
 
 
-def read_csv_safely(source: CSVSource, *, max_bytes: int = MAX_UPLOAD_BYTES) -> pd.DataFrame:
+def read_csv_safely(source: CSVSource, *, max_bytes: int = MAX_UPLOAD_BYTES,
+                    max_rows: int = MAX_DATASET_ROWS) -> pd.DataFrame:
     """Read a UTF-8, comma-delimited CSV without inferring a review column."""
     content = validate_csv_file(source, max_bytes=max_bytes)
     try:
@@ -64,14 +69,22 @@ def read_csv_safely(source: CSVSource, *, max_bytes: int = MAX_UPLOAD_BYTES) -> 
             raise DataValidationError("The CSV contains invalid text. Export it as UTF-8 CSV.")
         rows = csv.reader(StringIO(decoded), strict=True)
         header = next(rows)
+        if len(header) > MAX_DATASET_COLUMNS:
+            raise DataValidationError(f"CSV files may contain at most {MAX_DATASET_COLUMNS} columns.")
         names = [name.strip() for name in header]
         if not names or any(not name for name in names):
             raise DataValidationError("Each CSV column must have a nonblank header.")
         if len(set(names)) != len(names):
             raise DataValidationError("CSV column names must be unique.")
-        if any(len(row) != len(header) for row in rows if row):
-            raise DataValidationError("CSV rows have inconsistent column counts. Check commas and quoting.")
-        data = pd.read_csv(BytesIO(content), encoding="utf-8-sig")
+        count = 0
+        for row in rows:
+            count += 1
+            if count > max_rows:
+                raise DataValidationError(f"The dataset exceeds the {max_rows:,} row limit. Split it into smaller files.")
+            if row and len(row) != len(header):
+                raise DataValidationError("CSV rows have inconsistent column counts. Check commas and quoting.")
+        data = pd.read_csv(BytesIO(content), encoding="utf-8-sig", skip_blank_lines=False,
+                           keep_default_na=False, na_values=[""])
     except UnicodeDecodeError:
         raise DataValidationError("The CSV encoding is unsupported. Save the file as UTF-8 CSV.") from None
     except (csv.Error, pd.errors.ParserError, pd.errors.EmptyDataError, StopIteration):

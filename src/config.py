@@ -26,3 +26,9 @@ def _upload_limit() -> int:
 
 MAX_UPLOAD_BYTES = _upload_limit() * 1024 * 1024
 KPI_LABELS = ("Total reviews", "Positive sentiment", "Neutral sentiment", "Negative sentiment")
+
+MAX_DATASET_ROWS = 100_000
+MAX_DATASET_COLUMNS = 200
+PREVIEW_ROWS = 100
+MIN_REVIEW_LENGTH = 3
+SETUP_MESSAGE = "Load a dataset and select a review column to begin analysis."
