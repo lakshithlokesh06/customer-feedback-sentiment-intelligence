@@ -1,0 +1,32 @@
+# Python and build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# Virtual environments
+.venv/
+venv/
+env/
+# Secrets and local Streamlit state
+.env
+.env.*
+!.env.example
+.streamlit/*
+!.streamlit/config.toml
+# Editors and macOS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+.AppleDouble
+# Generated files
+*.log
+*.tmp
