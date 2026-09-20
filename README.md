@@ -2,9 +2,9 @@
 
 Transform customer feedback into actionable sentiment insights.
 
-A Python and Streamlit portfolio project for exploring customer review data. **Phase 4 adds an interactive sentiment analytics dashboard to the existing upload, preparation, and offline VADER workflow.** Sentiment comes from review text only; no machine-learning training or LLM is used.
+A Python and Streamlit portfolio project for exploring customer review data. **Phase 5 adds offline keyword, phrase, and representative-review insights to the existing upload, sentiment, and analytics workflow.** Sentiment comes from review text only; no machine-learning training or LLM is used.
 
-## Available in Phase 4
+## Available in Phase 5
 
 - Wide dashboard with sidebar navigation: Overview, Sentiment Analytics, Text Insights, Review Explorer, and About.
 - Helpful empty states, actual sentiment KPIs after analysis, and real Plotly analytics in the Sentiment Analytics page.
@@ -15,11 +15,12 @@ A Python and Streamlit portfolio project for exploring customer review data. **P
 - Explicit review-column selection with text-like columns listed first; no silent selection.
 - Review quality summaries and prepared review text with per-row status, preserving all original data.
 - Explicit VADER analysis with Positive, Neutral, and Negative labels, component scores, compound scores, and a bounded colored preview.
+- Overall and sentiment-specific keywords, frequent adjacent phrases, corpus statistics, and strongest/most neutral review signals.
 - Central configuration, persistent session results, and automated loader, preparation, sentiment, and UI tests.
 
 ## Planned features
 
-Text insights, individual review filtering, and analyzed-data exports remain planned. No paid API, LLM, authentication, or database is used.
+Individual review filtering and analyzed-data exports remain planned. No paid API, LLM, authentication, or database is used.
 
 ## Tech stack
 
@@ -45,13 +46,16 @@ customer-feedback-sentiment-intelligence/
 │   │   └── analyzer.py
 │   ├── analytics/
 │   │   ├── __init__.py
-│   │   └── sentiment_metrics.py
+│   │   ├── sentiment_metrics.py
+│   │   └── text_insights.py
 │   ├── visualization/
 │   │   ├── __init__.py
-│   │   └── charts.py
+│   │   ├── charts.py
+│   │   └── text_charts.py
 │   ├── ui/
 │   │   ├── __init__.py
-│   │   └── analytics.py
+│   │   ├── analytics.py
+│   │   └── text_insights.py
 │   └── utils/
 │       ├── __init__.py
 │       └── helpers.py
@@ -65,7 +69,8 @@ customer-feedback-sentiment-intelligence/
 │   ├── test_loader.py
 │   ├── test_phase2.py
 │   ├── test_sentiment.py
-│   └── test_analytics.py
+│   ├── test_analytics.py
+│   └── test_text_insights.py
 ├── .streamlit/
 │   └── config.toml
 ├── .env.example
@@ -168,7 +173,35 @@ After loading a dataset, selecting its review column, and clicking **Analyze Sen
 
 **Ratings:** Numeric or numeric-like columns whose names contain `rating`, `stars`, or `score`, with at most 20 distinct values, are offered. A stacked chart compares text sentiment across rating values. Missing/non-numeric ratings are omitted; ratings never change sentiment labels. Mismatch analytics assumes a 1–5 scale only when all numeric ratings across the entire source dataset are integral and within 1–5. A mismatch is rating 4–5 with Negative text, or rating 1–2 with Positive text. Rating 3 and Neutral text do not trigger a mismatch. Other scales skip the mismatch metric with an explanation. A subset of an unknown scale can resemble 1–5, so the UI explicitly labels this assumption. Mismatches are descriptive, not claims of fraud or error.
 
-Charts use consistent semantic colors and responsive full-width sizing. KPIs use two rows of three cards rather than a six-card-wide layout. Text insights, topic extraction, and Phase 5 functionality remain unimplemented.
+Charts use consistent semantic colors and responsive full-width sizing. KPIs use two rows of three cards rather than a six-card-wide layout. Semantic topic extraction remains unimplemented; lightweight lexical insights are available in Text Insights.
+
+## Text Insights
+
+Run sentiment analysis in Overview, then open **Text Insights**. This page does not trigger VADER or change stored text, scores, or labels. Choose **All analyzed reviews**, **Positive**, **Neutral**, or **Negative**. Display options control the number of keywords (default 15) and phrases (default 10), each within 5–20.
+
+### Preprocessing and metrics
+
+The pipeline lowercases temporary text, removes obvious HTTP(S)/www URLs, tokenizes Unicode alphabetic words, and excludes numbers, punctuation, isolated symbols, and tokens shorter than two characters. Common apostrophe contractions are expanded to preserve negation. It uses scikit-learn's bundled English stopwords with **not**, **no**, and **never** retained. No network resource download, new dependency, stemming, or lemmatization is required. The small custom supplement removes **just** and **really** as generic filler/emphasis; customer and product vocabulary is not removed.
+
+Keyword charts rank terms by **review frequency**, then raw occurrence count, then alphabetical order. Repeating a word ten times in one review contributes ten occurrences but only one review mention. Hover details include both counts and the percentage of reviews in the current sentiment scope containing the term. Duplicate dataset rows remain separate review documents, consistently with previous phases.
+
+Minimum document frequency is one for scopes with fewer than 30 reviews, and two for scopes of 30 or more. These thresholds and display limits live in `src/config.py`; each sentiment subset uses its own scope size. Empty subsets, stopword-only text, or phrases below the threshold display helpful empty states rather than fabricated results.
+
+Bigrams are adjacent meaningful words from the source sequence, such as **battery life**. Removed stopwords, punctuation, URLs, numbers, and symbols break adjacency: the pipeline does not join distant words or cross sentence boundaries. Inflected forms remain separate words. This is lexical phrase counting, not semantic topic modeling.
+
+### Praise, concerns, and examples
+
+The All scope shows **What customers appreciate** from Positive reviews and **Common customer concerns** from Negative reviews, with keywords and phrases for each. Choosing one sentiment focuses charts and representative examples on that class. Frequent words in these subsets are not confirmed praise, defects, business failures, or root causes; VADER labels and simple word counts can miss context and negation scope.
+
+Representative examples are limited to three original reviews. **Strongest Positive Signals** ranks Positive reviews by descending compound, **Strongest Negative Signals** ranks Negative reviews by ascending compound, and **Most Neutral Signals** ranks Neutral reviews by absolute compound closest to zero. Equal scores retain source order. Original text, label, compound, and available product/rating/date metadata are displayed. These examples are selected extremes or neutral signals, not a statistically representative sample.
+
+The compact corpus summary shows meaningful-word occurrences, unique keywords, and average/median words per review. Review length counts alphabetic words before stopword filtering, after URL removal and contraction expansion. Corpus statistics describe the selected scope and do not imply quality. Only analyzed rows contribute; unusable records remain in the source.
+
+Tokenization is reused for duplicate text during corpus construction. Aggregated results are held only in the current session and reused when changing controls or navigation; changing the dataset, selected review column, or analysis invalidates them. No uploaded text is cached globally.
+
+### Text limitations
+
+Text insights are primarily designed for English. Non-English and emoji-heavy text can be processed without a language-support claim; emoji and symbols do not become keywords. Very short or entirely uninformative reviews may yield no terms. Stopword filtering can remove words useful in some domains. There is no semantic topic modeling, aspect-based sentiment, transformer NLP, LLM summarization, automated root-cause detection, word cloud, or export workflow. Phase 6 has not been implemented.
 
 ## Validation
 
@@ -182,4 +215,4 @@ python -m unittest discover -s tests -v
 python -m streamlit run app.py --server.headless true
 ```
 
-`compileall .` also traverses the ignored virtual environment; for a faster project-only check use `python -m compileall -q app.py src tests`. Tests retain the Phase 1 checks and cover input errors, row and column limits, quality categories, original-data preservation, source switching, explicit selection, and navigation persistence. Sentiment tests cover actual positive/neutral/negative scoring, exact threshold boundaries, unusable rows, duplicate text, emphasis, emoji, multilingual/long text, column collisions, resource failures, and session invalidation. User-facing tracebacks are disabled; unexpected loading errors are logged to the server console.
+`compileall .` also traverses the ignored virtual environment; for a faster project-only check use `python -m compileall -q app.py src tests`. Tests retain the Phase 1 checks and cover input errors, row and column limits, quality categories, original-data preservation, source switching, explicit selection, and navigation persistence. Sentiment tests cover actual positive/neutral/negative scoring, exact threshold boundaries, unusable rows, duplicate text, emphasis, emoji, multilingual/long text, column collisions, resource failures, and session invalidation. Text-insight tests cover cleaning, negation, URLs, counts/coverage, phrase boundaries, dynamic thresholds, sentiment scopes, representative ordering, Unicode, preservation, and session reuse. User-facing tracebacks are disabled; unexpected loading errors are logged to the server console.

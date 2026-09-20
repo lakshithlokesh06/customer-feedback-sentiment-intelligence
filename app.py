@@ -1,4 +1,4 @@
-"""Phase 4 Streamlit interface with explicit offline VADER analysis."""
+"""Phase 5 Streamlit interface with explicit offline VADER analysis."""
 
 import logging
 import hashlib
@@ -15,6 +15,7 @@ from src.sentiment.analyzer import analyze_dataframe, sentiment_summary, Sentime
 from src.data.loader import DataValidationError, read_csv_safely
 from src.utils.helpers import format_count
 from src.ui.analytics import render_analytics_page
+from src.ui.text_insights import render_text_insights_page
 
 logger = logging.getLogger(__name__)
 st.set_page_config(page_title=APP_TITLE, page_icon="◈", layout="wide")
@@ -53,7 +54,7 @@ def render_sidebar() -> str:
         else:
             st.caption("No dataset loaded")
         st.divider()
-        st.caption("PHASE 4 · SENTIMENT ANALYTICS")
+        st.caption("PHASE 5 · TEXT INSIGHTS")
         st.caption("Upload, prepare, and analyze review text from Overview.")
     return page
 
@@ -245,11 +246,13 @@ def main() -> None:
         render_analytics()
     elif page == "Sentiment Analytics":
         render_analytics_page()
+    elif page == "Text Insights":
+        render_text_insights_page()
     elif page == "About":
         st.subheader("About this project")
         st.write("A portfolio project for exploring customer experience through review data.")
-        st.markdown("**Available now:** CSV uploads, sample data, dataset profiling, explicit review-column selection, review quality checks, explicit VADER sentiment scoring, and an interactive sentiment analytics dashboard.")
-        st.markdown("**Planned:** interactive insights, review filters, and exports.")
+        st.markdown("**Available now:** CSV uploads, sample data, dataset profiling, explicit review-column selection, review quality checks, explicit VADER sentiment scoring, an interactive sentiment analytics dashboard, and keyword/phrase insights.")
+        st.markdown("**Planned:** review filters and exports.")
         st.caption("No external paid API, LLM, authentication, or database is used.")
     else:
         prepared = st.session_state.get("prepared")
@@ -261,11 +264,9 @@ def main() -> None:
                 render_sentiment_preview()
             else:
                 render_reviews(prepared.data)
-        else:
-            st.subheader("Text insights")
-            st.info("Review data is ready. Keywords and text analysis are planned for a future phase.")
+
     st.divider()
-    st.caption("Phase 4 · Sentiment analytics")
+    st.caption("Phase 5 · Text insights")
 
 
 if __name__ == "__main__":

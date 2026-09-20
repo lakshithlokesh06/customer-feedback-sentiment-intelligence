@@ -11,7 +11,7 @@ from src.data.preprocessor import dataset_summary
 def clear_dataset(state: MutableMapping[str, Any]) -> None:
     """Discard dataset-derived state while leaving navigation intact."""
     state["dataset_revision"] = state.get("dataset_revision", 0) + 1
-    for key in ("dataset", "dataset_name", "dataset_id", "profile", "review_column", "prepared", "analysis", "analytics_context"):
+    for key in ("dataset", "dataset_name", "dataset_id", "profile", "review_column", "prepared", "analysis", "analytics_context", "text_context"):
         state.pop(key, None)
 
 
@@ -29,3 +29,4 @@ def reset_review_selection(state: MutableMapping[str, Any], column: str | None) 
         state.pop("prepared", None)
         state.pop("analysis", None)
         state.pop("analytics_context", None)
+        state.pop("text_context", None)
