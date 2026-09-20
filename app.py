@@ -1,4 +1,4 @@
-"""Phase 5 Streamlit interface with explicit offline VADER analysis."""
+"""Phase 6 Streamlit interface with explicit offline VADER analysis."""
 
 import logging
 import hashlib
@@ -16,6 +16,7 @@ from src.data.loader import DataValidationError, read_csv_safely
 from src.utils.helpers import format_count
 from src.ui.analytics import render_analytics_page
 from src.ui.text_insights import render_text_insights_page
+from src.ui.review_explorer import render_review_explorer_page
 
 logger = logging.getLogger(__name__)
 st.set_page_config(page_title=APP_TITLE, page_icon="◈", layout="wide")
@@ -54,7 +55,7 @@ def render_sidebar() -> str:
         else:
             st.caption("No dataset loaded")
         st.divider()
-        st.caption("PHASE 5 · TEXT INSIGHTS")
+        st.caption("PHASE 6 · REVIEW EXPLORER")
         st.caption("Upload, prepare, and analyze review text from Overview.")
     return page
 
@@ -89,7 +90,7 @@ def render_analytics() -> None:
 def render_reviews(data: pd.DataFrame | None) -> None:
     """Preview raw sample rows without implying that scoring has happened."""
     st.subheader("Review explorer")
-    st.caption("Inspect original review records. Run sentiment analysis from Overview. Filtering and export are planned.")
+    st.caption("Inspect original review records. Run sentiment analysis from Overview. Search, filters, and CSV downloads are available in Review Explorer.")
     if data is None:
         with st.container(border=True):
             st.markdown("**Your customer stories will appear here**")
@@ -252,21 +253,13 @@ def main() -> None:
         st.subheader("About this project")
         st.write("A portfolio project for exploring customer experience through review data.")
         st.markdown("**Available now:** CSV uploads, sample data, dataset profiling, explicit review-column selection, review quality checks, explicit VADER sentiment scoring, an interactive sentiment analytics dashboard, and keyword/phrase insights.")
-        st.markdown("**Planned:** review filters and exports.")
+        st.markdown("**Available now:** review search, filters, pagination, and full/filtered CSV downloads.")
         st.caption("No external paid API, LLM, authentication, or database is used.")
-    else:
-        prepared = st.session_state.get("prepared")
-        if prepared is None or not prepared.quality["Valid Reviews"]:
-            st.subheader(page)
-            st.info(SETUP_MESSAGE)
-        elif page == "Review Explorer":
-            if st.session_state.get("analysis") is not None:
-                render_sentiment_preview()
-            else:
-                render_reviews(prepared.data)
+    elif page == "Review Explorer":
+        render_review_explorer_page()
 
     st.divider()
-    st.caption("Phase 5 · Text insights")
+    st.caption("Phase 6 · Review explorer and export")
 
 
 if __name__ == "__main__":

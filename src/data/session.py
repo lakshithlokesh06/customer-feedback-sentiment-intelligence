@@ -10,6 +10,7 @@ from src.data.preprocessor import dataset_summary
 
 def clear_dataset(state: MutableMapping[str, Any]) -> None:
     """Discard dataset-derived state while leaving navigation intact."""
+    clear_explorer(state)
     state["dataset_revision"] = state.get("dataset_revision", 0) + 1
     for key in ("dataset", "dataset_name", "dataset_id", "profile", "review_column", "prepared", "analysis", "analytics_context", "text_context"):
         state.pop(key, None)
@@ -25,8 +26,16 @@ def set_dataset(state: MutableMapping[str, Any], data: pd.DataFrame, name: str, 
 def reset_review_selection(state: MutableMapping[str, Any], column: str | None) -> None:
     """Invalidate prepared and analyzed data only when the selection changes."""
     if state.get("review_column") != column:
+        clear_explorer(state)
         state["review_column"] = column
         state.pop("prepared", None)
         state.pop("analysis", None)
         state.pop("analytics_context", None)
         state.pop("text_context", None)
+
+
+def clear_explorer(state: MutableMapping[str, Any]) -> None:
+    """Remove explorer controls, derived context, and session-only export bytes."""
+    for key in list(state):
+        if key.startswith("explorer_"):
+            state.pop(key, None)

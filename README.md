@@ -2,9 +2,9 @@
 
 Transform customer feedback into actionable sentiment insights.
 
-A Python and Streamlit portfolio project for exploring customer review data. **Phase 5 adds offline keyword, phrase, and representative-review insights to the existing upload, sentiment, and analytics workflow.** Sentiment comes from review text only; no machine-learning training or LLM is used.
+A Python and Streamlit portfolio project for exploring customer review data. **Phase 6 adds a searchable, filterable Review Explorer and in-memory CSV downloads to the existing sentiment and text-insights workflow.** Sentiment comes from review text only; no machine-learning training or LLM is used.
 
-## Available in Phase 5
+## Available in Phase 6
 
 - Wide dashboard with sidebar navigation: Overview, Sentiment Analytics, Text Insights, Review Explorer, and About.
 - Helpful empty states, actual sentiment KPIs after analysis, and real Plotly analytics in the Sentiment Analytics page.
@@ -16,11 +16,12 @@ A Python and Streamlit portfolio project for exploring customer review data. **P
 - Review quality summaries and prepared review text with per-row status, preserving all original data.
 - Explicit VADER analysis with Positive, Neutral, and Negative labels, component scores, compound scores, and a bounded colored preview.
 - Overall and sentiment-specific keywords, frequent adjacent phrases, corpus statistics, and strongest/most neutral review signals.
+- Paginated review cards with literal search, sentiment/metadata filters, stable sorting, and full or filtered CSV downloads.
 - Central configuration, persistent session results, and automated loader, preparation, sentiment, and UI tests.
 
-## Planned features
+## Scope
 
-Individual review filtering and analyzed-data exports remain planned. No paid API, LLM, authentication, or database is used.
+Review search, filtering, pagination, and CSV export are implemented. PDF reporting and advanced AI summarization are not implemented. No paid API, LLM, authentication, or database is used.
 
 ## Tech stack
 
@@ -38,6 +39,7 @@ customer-feedback-sentiment-intelligence/
 │   ├── config.py
 │   ├── data/
 │   │   ├── __init__.py
+│   │   ├── exporter.py
 │   │   ├── loader.py
 │   │   ├── preprocessor.py
 │   │   └── session.py
@@ -46,6 +48,7 @@ customer-feedback-sentiment-intelligence/
 │   │   └── analyzer.py
 │   ├── analytics/
 │   │   ├── __init__.py
+│   │   ├── review_explorer.py
 │   │   ├── sentiment_metrics.py
 │   │   └── text_insights.py
 │   ├── visualization/
@@ -55,6 +58,7 @@ customer-feedback-sentiment-intelligence/
 │   ├── ui/
 │   │   ├── __init__.py
 │   │   ├── analytics.py
+│   │   ├── review_explorer.py
 │   │   └── text_insights.py
 │   └── utils/
 │       ├── __init__.py
@@ -70,7 +74,8 @@ customer-feedback-sentiment-intelligence/
 │   ├── test_phase2.py
 │   ├── test_sentiment.py
 │   ├── test_analytics.py
-│   └── test_text_insights.py
+│   ├── test_text_insights.py
+│   └── test_review_explorer.py
 ├── .streamlit/
 │   └── config.toml
 ├── .env.example
@@ -152,7 +157,7 @@ Scoring runs only on an explicit button click. Results live in the current sessi
 
 ### Sentiment limitations
 
-VADER is a rule/lexicon-based model primarily designed for English. Non-English text is accepted without a reliability claim. Sarcasm, context, domain-specific language, and mixed sentiment can be misclassified. Scores describe text sentiment, not factual correctness, human intent, or a calibrated probability. Case, punctuation, URLs, and emoji are passed through after Phase 2 whitespace trimming. Numeric-only text remains unusable under Phase 2 rules. Very short feedback (including a single emoji) can be excluded by the existing minimum length. Long reviews are supported within existing CSV limits, but large amounts of unique text take longer to process. There is no topic modeling, aspect analysis, export, model training, or LLM functionality in this phase.
+VADER is a rule/lexicon-based model primarily designed for English. Non-English text is accepted without a reliability claim. Sarcasm, context, domain-specific language, and mixed sentiment can be misclassified. Scores describe text sentiment, not factual correctness, human intent, or a calibrated probability. Case, punctuation, URLs, and emoji are passed through after Phase 2 whitespace trimming. Numeric-only text remains unusable under Phase 2 rules. Very short feedback (including a single emoji) can be excluded by the existing minimum length. Long reviews are supported within existing CSV limits, but large amounts of unique text take longer to process. There is no topic modeling, aspect analysis, model training, or LLM functionality in this phase.
 
 ## Sentiment Analytics dashboard
 
@@ -201,7 +206,36 @@ Tokenization is reused for duplicate text during corpus construction. Aggregated
 
 ### Text limitations
 
-Text insights are primarily designed for English. Non-English and emoji-heavy text can be processed without a language-support claim; emoji and symbols do not become keywords. Very short or entirely uninformative reviews may yield no terms. Stopword filtering can remove words useful in some domains. There is no semantic topic modeling, aspect-based sentiment, transformer NLP, LLM summarization, automated root-cause detection, word cloud, or export workflow. Phase 6 has not been implemented.
+Text insights are primarily designed for English. Non-English and emoji-heavy text can be processed without a language-support claim; emoji and symbols do not become keywords. Very short or entirely uninformative reviews may yield no terms. Stopword filtering can remove words useful in some domains. There is no semantic topic modeling, aspect-based sentiment, transformer NLP, LLM summarization, automated root-cause detection, or word cloud. CSV downloads are available in Review Explorer.
+
+## Review Explorer and CSV export
+
+Load data, select the review column, and run **Analyze Sentiment** in Overview before opening **Review Explorer**. The explorer never reruns scoring. It shows matching counts, class counts, and average compound (excluding Not analyzed), followed by paginated cards with original text, preparation status, all VADER scores where available, and optional metadata. Source dataframe indices are shown for traceability and are not inserted into CSV exports.
+
+### Search, filters, and sorting
+
+- Case-insensitive, literal substring search uses the original review text. Regex-like characters are treated literally; whitespace-only queries do not filter.
+- Sentiment multiselect supports Positive, Neutral, Negative, and Not analyzed. All are selected by default; clearing the selection yields no matches.
+- The optional compound slider restricts analyzed rows. Selected **Not analyzed** rows bypass only this range because their scores are null; all other active filters still apply.
+- Up to two metadata columns can be filtered simultaneously, using Phase 4 category suggestions. Each supports selected values and a separate missing-value checkbox, so a literal category called “Missing” remains distinct from null values.
+- Compatible rating columns support observed numeric ranges, including scales other than 1–5. Missing/non-numeric ratings are excluded only when the rating filter is active. Rating values never change text sentiment.
+- Compatible date columns support inclusive date ranges in UTC. Missing/invalid dates are excluded only when date filtering is active. An incomplete date range is not applied until its end date is selected.
+- Stable sorting includes original order, highest/lowest compound, and closest to zero. Compatible selected metadata adds newest/oldest and rating high-to-low/low-to-high. Null sorting values appear last; ties retain source order.
+
+**Reset filters** clears search, label selection, score/metadata/date/rating filters, sorting, page size, page number, and prepared download bytes while keeping the dataset and analysis. Loading a dataset, changing the review column, or replacing analysis resets incompatible explorer state. Widget values may return to defaults after navigating away and back; analysis remains available.
+
+Cards are limited to **10, 25, or 50 per page** (default 10). Filter/sort/page-size changes reset to page 1, and page values are clamped safely after result counts shrink. Empty matches show an explicit empty state and disable filtered export preparation. Not analyzed cards retain original values and preparation status without invented scores.
+
+### Downloads
+
+Expand **CSV downloads**, then explicitly prepare the desired file:
+
+- **Prepare full analyzed CSV → Download full analyzed CSV** creates `customer_feedback_sentiment_analysis.csv`, preserving every source-result row in original order, every original/preparation column, and the actual generated sentiment column names (including collision-safe names).
+- **Prepare filtered CSV → Download filtered CSV** creates `customer_feedback_filtered_reviews.csv`, containing all matching rows across all pages in the current sort order.
+
+CSV conversion happens only on preparation, not on each widget rerun. Bytes stay in the current session; no exports are written to the repository and the uploaded file is never overwritten. Changing filters or sorting invalidates the prepared filtered file, preventing stale downloads. Pagination alone does not change the filtered export. Output uses UTF-8, standard CSV quoting, numeric score values, and blank null fields, without an added index. Original text is preserved, including any spreadsheet formula-like content; the exporter does not sanitize or transform it. CSV round trips cannot preserve all dataframe type information or distinguish an empty string from every form of null.
+
+Optional metadata filters depend on Phase 4 heuristics, so unusual column names or high-cardinality categories may not be offered. There is no PDF reporting, advanced AI summarization, or functionality beyond Phase 6.
 
 ## Validation
 
@@ -215,4 +249,4 @@ python -m unittest discover -s tests -v
 python -m streamlit run app.py --server.headless true
 ```
 
-`compileall .` also traverses the ignored virtual environment; for a faster project-only check use `python -m compileall -q app.py src tests`. Tests retain the Phase 1 checks and cover input errors, row and column limits, quality categories, original-data preservation, source switching, explicit selection, and navigation persistence. Sentiment tests cover actual positive/neutral/negative scoring, exact threshold boundaries, unusable rows, duplicate text, emphasis, emoji, multilingual/long text, column collisions, resource failures, and session invalidation. Text-insight tests cover cleaning, negation, URLs, counts/coverage, phrase boundaries, dynamic thresholds, sentiment scopes, representative ordering, Unicode, preservation, and session reuse. User-facing tracebacks are disabled; unexpected loading errors are logged to the server console.
+`compileall .` also traverses the ignored virtual environment; for a faster project-only check use `python -m compileall -q app.py src tests`. Tests retain the Phase 1 checks and cover input errors, row and column limits, quality categories, original-data preservation, source switching, explicit selection, and navigation persistence. Sentiment tests cover actual positive/neutral/negative scoring, exact threshold boundaries, unusable rows, duplicate text, emphasis, emoji, multilingual/long text, column collisions, resource failures, and session invalidation. Text-insight tests cover cleaning, negation, URLs, counts/coverage, phrase boundaries, dynamic thresholds, sentiment scopes, representative ordering, Unicode, preservation, and session reuse. Review Explorer tests cover literal search, class/compound/category/rating/date filters, stable sorting, pagination, resets, Unicode/full/filtered CSV preservation, collision-safe columns, and download preparation. User-facing tracebacks are disabled; unexpected loading errors are logged to the server console.
