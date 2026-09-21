@@ -102,9 +102,9 @@ def test_empty_aggregations():
 def test_analytics_workflow():
     app = AppTest.from_file(str(PROJECT_ROOT / 'app.py')).run()
     app.sidebar.radio[0].set_value('Sentiment Analytics').run()
-    assert app.info[0].value == 'Load a dataset to begin sentiment analysis.'
+    assert app.info[0].value == 'Load a dataset and select a review column to begin analysis.'
     app.sidebar.button[0].click().run()
-    assert 'Select the review text column' in app.info[0].value
+    assert 'select a review column' in app.info[0].value
     app.sidebar.radio[0].set_value('Overview').run()
     app.selectbox[0].select('review').run()
     app.sidebar.radio[0].set_value('Sentiment Analytics').run()

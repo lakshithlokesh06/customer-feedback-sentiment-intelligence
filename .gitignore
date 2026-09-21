@@ -30,3 +30,8 @@ env/
 # Generated files
 *.log
 *.tmp
+
+# Local downloads and QA screenshots
+/customer_feedback_sentiment_analysis.csv
+/customer_feedback_filtered_reviews.csv
+/screenshots/

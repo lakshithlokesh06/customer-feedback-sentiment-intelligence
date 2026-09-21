@@ -1,6 +1,7 @@
 """Text Insights page with session-local corpus reuse and explicit empty states."""
 import logging
 import streamlit as st
+from src.config import SETUP_MESSAGE
 
 from src.analytics.text_insights import (
     ALL_SCOPE, build_corpus, corpus_statistics, minimum_reviews, top_terms, representative_reviews,
@@ -35,7 +36,7 @@ def render_representatives(result, scope: str) -> None:
     for _, row in reviews.iterrows():
         with st.container(border=True):
             st.text(str(row[st.session_state['review_column']]))
-            st.caption(f"{label} · Compound {row[result.columns['sentiment_compound']]:.3f}")
+            st.caption(f"{label} · Compound Score {row[result.columns['sentiment_compound']]:.3f}")
             metadata = [f'{name}: {row[name]}' for name in ('product', 'rating', 'date') if name in reviews.columns]
             if metadata:
                 st.text(' · '.join(metadata))
@@ -44,12 +45,13 @@ def render_representatives(result, scope: str) -> None:
 
 def render_text_insights_page() -> None:
     st.subheader('Text Insights')
+    st.write('Discover frequently mentioned words and phrases, then read the reviews behind them.')
     state = st.session_state
     if state.get('dataset') is None:
-        st.info('Load a dataset to explore text insights.')
+        st.info(SETUP_MESSAGE)
         return
     if state.get('review_column') is None:
-        st.info('Select the review text column to continue.')
+        st.info(SETUP_MESSAGE)
         return
     result = state.get('analysis')
     if result is None:
@@ -67,6 +69,8 @@ def render_text_insights_page() -> None:
             return
     _, corpus = state['text_context']
     scope_name = st.selectbox('Sentiment scope', [ALL_SCOPE, *LABELS])
+    with st.expander('How frequencies are counted'):
+        st.write('Review frequency counts reviews mentioning a word or phrase at least once. Word frequency counts every occurrence, including repetitions within one review. Charts rank by review frequency; hover to compare both counts.')
     with st.expander('Display options'):
         keywords = st.slider('Keywords to display', TEXT_DISPLAY_MIN, TEXT_DISPLAY_MAX, TEXT_KEYWORD_DEFAULT)
         phrases = st.slider('Phrases to display', TEXT_DISPLAY_MIN, TEXT_DISPLAY_MAX, TEXT_PHRASE_DEFAULT)

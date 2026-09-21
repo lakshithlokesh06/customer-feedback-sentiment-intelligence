@@ -1,12 +1,30 @@
 """Review investigation page with session-local filters and on-demand exports."""
-import math
+import logging
+import numpy as np
 import pandas as pd
 import streamlit as st
+from src.config import SETUP_MESSAGE, COMPOUND_HELP, NOT_ANALYZED_HELP
 
 from src.analytics.review_explorer import LABELS, ReviewFilters, filter_reviews, sort_reviews, paginate
 from src.analytics.sentiment_metrics import metadata_columns, parse_dates
 from src.config import EXPLORER_PAGE_SIZES, EXPLORER_METADATA_LIMIT, SENTIMENT_COLORS
 from src.data.exporter import export_csv, FULL_EXPORT_NAME, FILTERED_EXPORT_NAME
+
+
+logger = logging.getLogger(__name__)
+
+
+def prepare_export(data, key, signature=None) -> None:
+    """Publish downloads only after successful serialization."""
+    try:
+        with st.spinner("Preparing CSV…"):
+            payload = export_csv(data)
+        st.session_state[key] = payload
+        if signature is not None:
+            st.session_state["explorer_export_signature"] = signature
+    except Exception:
+        logger.exception("CSV export preparation failed")
+        st.error("CSV download could not be prepared. Try fewer reviews or retry the export.")
 
 
 def reset_explorer() -> None:
@@ -29,7 +47,7 @@ def controls(result, review_column: str):
     dates, categories, ratings = state['explorer_metadata']
     st.markdown('**Search & Sentiment**')
     query = st.text_input('Search original review text', key='explorer_query')
-    labels = st.multiselect('Sentiment labels', LABELS, default=list(LABELS), key='explorer_labels')
+    labels = st.multiselect('Sentiment labels', LABELS, default=list(LABELS), key='explorer_labels', help=NOT_ANALYZED_HELP)
     filters = ReviewFilters(search=query, labels=tuple(labels))
     descriptions = []
     if query.strip():
@@ -39,7 +57,7 @@ def controls(result, review_column: str):
     selected_date = selected_rating = None
     selected_categories = []
     with st.expander('Additional filters'):
-        if st.checkbox('Filter compound score', key='explorer_compound_on'):
+        if st.checkbox('Filter compound score', key='explorer_compound_on', help=COMPOUND_HELP):
             filters.compound = st.slider('Compound range', -1., 1., (-1., 1.), .01, key='explorer_compound')
             descriptions.append(f'Compound: {filters.compound[0]:.2f} to {filters.compound[1]:.2f}')
             st.caption('Selected Not analyzed rows bypass this range; other filters still apply.')
@@ -55,7 +73,7 @@ def controls(result, review_column: str):
         if ratings:
             selected_rating = st.selectbox('Rating column', ratings, key='explorer_rating_column')
             values = pd.to_numeric(result.data[selected_rating], errors='coerce').dropna()
-            values = values[values.map(math.isfinite)]
+            values = values[np.isfinite(values)]
             if not values.empty and st.checkbox('Filter rating', key='explorer_rating_on'):
                 lower, upper = float(values.min()), float(values.max())
                 if lower == upper:
@@ -93,16 +111,13 @@ def render_exports(result, matches, signature) -> None:
     with st.expander('CSV downloads'):
         st.caption('Full export preserves every analyzed-result row. Filtered export follows current filters and sorting, across all pages.')
         if st.button('Prepare full analyzed CSV'):
-            with st.spinner('Preparing CSV…'):
-                st.session_state['explorer_full_csv'] = export_csv(result.data)
+            prepare_export(result.data, 'explorer_full_csv')
         if 'explorer_full_csv' in st.session_state:
             st.download_button('Download full analyzed CSV', st.session_state['explorer_full_csv'], FULL_EXPORT_NAME, 'text/csv', on_click='ignore')
         if st.session_state.get('explorer_export_signature') != signature:
             st.session_state.pop('explorer_filtered_csv', None)
         if st.button('Prepare filtered CSV', disabled=matches.empty):
-            with st.spinner('Preparing filtered CSV…'):
-                st.session_state['explorer_filtered_csv'] = export_csv(matches)
-                st.session_state['explorer_export_signature'] = signature
+            prepare_export(matches, 'explorer_filtered_csv', signature)
         if 'explorer_filtered_csv' in st.session_state:
             st.download_button('Download filtered CSV', st.session_state['explorer_filtered_csv'], FILTERED_EXPORT_NAME, 'text/csv', on_click='ignore')
         elif matches.empty:
@@ -120,9 +135,10 @@ def render_cards(page, result, review_column, metadata) -> None:
             text = row[review_column]
             st.text('Missing review value' if pd.isna(text) else str(text))
             status_column = st.session_state['prepared'].status_column
-            st.caption(f'Preparation status: {row[status_column]}')
+            status = {'valid': 'Usable review text', 'missing': 'Missing review', 'empty': 'Blank review', 'non_text': 'Non-text review', 'too_short': 'Review too short'}
+            st.caption(status.get(row[status_column], 'Review unavailable'))
             if label != 'Not analyzed':
-                scores = ' · '.join(f'{name.capitalize()}: {row[result.columns[f"sentiment_{name}"]]:.3f}'
+                scores = ' · '.join(f'{"Compound Score" if name == "compound" else name.capitalize()}: {row[result.columns[f"sentiment_{name}"]]:.3f}'
                                     for name in ('compound', 'positive', 'neutral', 'negative'))
                 st.caption(scores)
             else:
@@ -133,12 +149,13 @@ def render_cards(page, result, review_column, metadata) -> None:
 
 def render_review_explorer_page() -> None:
     st.subheader('Review Explorer')
+    st.write('Search individual reviews, refine your selection, and download results.')
     state = st.session_state
     if state.get('dataset') is None:
-        st.info('Load a dataset to explore customer reviews.')
+        st.info(SETUP_MESSAGE)
         return
     if state.get('review_column') is None:
-        st.info('Select the review text column to continue.')
+        st.info(SETUP_MESSAGE)
         return
     result = state.get('analysis')
     if result is None:
@@ -163,7 +180,7 @@ def render_review_explorer_page() -> None:
         for start in (0, 3):
             for col, (label, value) in zip(st.columns(3 if start == 0 else 2), metrics[start:start + 3]):
                 with col, st.container(border=True):
-                    st.metric(label, value)
+                    st.metric(label, value, help=COMPOUND_HELP if label == 'Average Compound Score' else None)
     render_exports(result, matches, signature)
     if matches.empty:
         st.info('No reviews match the current filters.')

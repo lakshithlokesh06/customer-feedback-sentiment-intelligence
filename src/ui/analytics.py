@@ -1,5 +1,6 @@
 """Sentiment Analytics page; calculations and figures live in separate modules."""
 import streamlit as st
+from src.config import SETUP_MESSAGE, COMPOUND_HELP
 from src.analytics.sentiment_metrics import (
     LABELS, analyzed_rows, filter_sentiment, overall, metadata_columns,
     parse_dates, by_category, by_time, by_rating, average_compound, five_star_scale,
@@ -9,12 +10,13 @@ from src.visualization import charts
 
 def render_analytics_page() -> None:
     st.subheader('Sentiment Analytics')
+    st.write('Compare sentiment, follow trends, and explore differences across categories and ratings.')
     state = st.session_state
     if state.get('dataset') is None:
-        st.info('Load a dataset to begin sentiment analysis.')
+        st.info(SETUP_MESSAGE)
         return
     if state.get('review_column') is None:
-        st.info('Select the review text column before running sentiment analysis.')
+        st.info(SETUP_MESSAGE)
         return
     if state.get('analysis') is None:
         st.info('Run sentiment analysis from Overview to unlock analytics.')
@@ -44,8 +46,8 @@ def render_analytics_page() -> None:
     for start in (0, 3):
         for column, (label, value) in zip(st.columns(3), items[start:start + 3]):
             with column, st.container(border=True):
-                st.metric(label, value)
-    st.caption(f'{len(result.data) - len(data):,} unusable records excluded. {len(data) - len(selected):,} analyzed records hidden by filters. Total Reviews is the unfiltered source count.')
+                st.metric(label, value, help=COMPOUND_HELP if label == 'Average Compound Score' else None)
+    st.caption(f'{len(result.data) - len(data):,} reviews excluded from analysis. {len(data) - len(selected):,} analyzed reviews hidden by filters. Total Reviews is the unfiltered source count.')
     if selected.empty:
         st.info('No analyzed reviews match these filters. Reset filters to view all available results.')
         return
@@ -91,7 +93,7 @@ def render_analytics_page() -> None:
         if not rating_summary.empty:
             st.plotly_chart(charts.comparison(rating_summary, f'Text sentiment by {rating}'), width='stretch', config={'displayModeBar': False})
         if mismatch_supported:
-            st.metric('Rating–sentiment mismatch', mismatch or 0)
+            st.metric('Rating–sentiment mismatch', mismatch or 0, help='On a 1–5 scale: ratings 4–5 with Negative text, or 1–2 with Positive text. This highlights disagreement; it does not prove an error.')
             st.caption('Assuming a 1–5 star scale: 4–5 with Negative text, or 1–2 with Positive text. Rating 3 is excluded. This is descriptive, not a claim of fraud or error.')
         else:
             st.info('Mismatch analytics skipped: ratings do not consistently resemble an integral 1–5 scale.')

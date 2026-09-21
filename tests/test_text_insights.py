@@ -127,9 +127,9 @@ def test_collision_mapping_and_cache_reset():
 def test_text_insights_ui_workflow():
     app = AppTest.from_file(str(PROJECT_ROOT / 'app.py')).run()
     app.sidebar.radio[0].set_value('Text Insights').run()
-    assert app.info[0].value == 'Load a dataset to explore text insights.'
+    assert app.info[0].value == 'Load a dataset and select a review column to begin analysis.'
     app.sidebar.button[0].click().run()
-    assert app.info[0].value == 'Select the review text column to continue.'
+    assert app.info[0].value == 'Load a dataset and select a review column to begin analysis.'
     app.sidebar.radio[0].set_value('Overview').run()
     app.selectbox[0].select('review').run()
     app.sidebar.radio[0].set_value('Text Insights').run()

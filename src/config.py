@@ -7,11 +7,13 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
+# Application identity
 APP_TITLE = "Customer Feedback Sentiment Intelligence"
 TAGLINE = "Transform customer feedback into actionable sentiment insights."
 SAMPLE_DATA_PATH = PROJECT_ROOT / "data" / "sample_customer_feedback.csv"
 NAVIGATION = ("Overview", "Sentiment Analytics", "Text Insights", "Review Explorer", "About")
 SAMPLE_COLUMNS = ("review_id", "review", "rating", "date", "product")
+# File validation and upload limits
 DEFAULT_MAX_UPLOAD_MB = 10
 
 
@@ -27,12 +29,14 @@ def _upload_limit() -> int:
 MAX_UPLOAD_BYTES = _upload_limit() * 1024 * 1024
 KPI_LABELS = ("Total reviews", "Positive sentiment", "Neutral sentiment", "Negative sentiment")
 
+# Dataset preparation and preview
 MAX_DATASET_ROWS = 100_000
 MAX_DATASET_COLUMNS = 200
 PREVIEW_ROWS = 100
 MIN_REVIEW_LENGTH = 3
 SETUP_MESSAGE = "Load a dataset and select a review column to begin analysis."
 
+# Sentiment thresholds and presentation
 POSITIVE_THRESHOLD = 0.05
 NEGATIVE_THRESHOLD = -0.05
 SENTIMENT_COLUMNS = (
@@ -46,11 +50,13 @@ SENTIMENT_COLORS = {
     "Not analyzed": "color: #666666; background-color: #f3f3f3",
 }
 
+# Analytics and chart limits
 SENTIMENT_CHART_COLORS = {'Positive': '#247A59', 'Neutral': '#7B8794', 'Negative': '#B65353'}
 MAX_CHART_CATEGORIES = 15
 MAX_CATEGORY_CARDINALITY = 50
 MAX_RATING_CARDINALITY = 20
 
+# Text insights
 TEXT_KEYWORD_DEFAULT = 15
 TEXT_PHRASE_DEFAULT = 10
 TEXT_DISPLAY_MIN = 5
@@ -60,5 +66,9 @@ TEXT_LARGE_CORPUS_SIZE = 30
 TEXT_LARGE_MIN_REVIEWS = 2
 TEXT_REPRESENTATIVE_LIMIT = 3
 
+# Review Explorer pagination
 EXPLORER_PAGE_SIZES = (10, 25, 50)
 EXPLORER_METADATA_LIMIT = 2
+
+COMPOUND_HELP = f"Compound Score summarizes text sentiment from −1 (most negative) to +1 (most positive). Neutral scores fall between {NEGATIVE_THRESHOLD} and {POSITIVE_THRESHOLD}."
+NOT_ANALYZED_HELP = f"Not analyzed reviews are retained but have no scores: their text is missing, blank, numeric, non-text, or shorter than {MIN_REVIEW_LENGTH} characters."

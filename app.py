@@ -1,4 +1,4 @@
-"""Phase 6 Streamlit interface with explicit offline VADER analysis."""
+"""Streamlit interface with explicit offline VADER analysis."""
 
 import logging
 import hashlib
@@ -14,6 +14,7 @@ from src.config import POSITIVE_THRESHOLD, NEGATIVE_THRESHOLD, SENTIMENT_COLORS
 from src.sentiment.analyzer import analyze_dataframe, sentiment_summary, SentimentError
 from src.data.loader import DataValidationError, read_csv_safely
 from src.utils.helpers import format_count
+from src.ui.about import render_about_page
 from src.ui.analytics import render_analytics_page
 from src.ui.text_insights import render_text_insights_page
 from src.ui.review_explorer import render_review_explorer_page
@@ -22,18 +23,22 @@ logger = logging.getLogger(__name__)
 st.set_page_config(page_title=APP_TITLE, page_icon="◈", layout="wide")
 
 
-def load_sample() -> None:
+def load_sample() -> bool:
     """Load the bundled dataset while presenting safe, actionable failures."""
     try:
-        data = read_csv_safely(SAMPLE_DATA_PATH)
+        with st.spinner("Loading sample dataset…"):
+            data = read_csv_safely(SAMPLE_DATA_PATH)
         if not set(SAMPLE_COLUMNS).issubset(data.columns):
             raise DataValidationError("The sample dataset is incomplete. Restore the bundled CSV file.")
         set_dataset(st.session_state, data, "Fictional sample", "sample")
+        return True
     except DataValidationError as exc:
         st.error(str(exc))
     except Exception:
         logger.exception("Unexpected sample resource failure")
         st.error("The sample dataset is temporarily unavailable. Check the local installation and try again.")
+
+    return False
 
 
 def render_sidebar() -> str:
@@ -55,7 +60,7 @@ def render_sidebar() -> str:
         else:
             st.caption("No dataset loaded")
         st.divider()
-        st.caption("PHASE 6 · REVIEW EXPLORER")
+        st.caption("Explore the story behind each review.")
         st.caption("Upload, prepare, and analyze review text from Overview.")
     return page
 
@@ -73,38 +78,21 @@ def render_kpis(data: pd.DataFrame | None) -> None:
                 st.caption("Dataset records" if index == 0 else "Awaiting sentiment analysis")
 
 
-def render_analytics() -> None:
-    """Reserve clearly labeled areas for future visual analytics."""
-    st.subheader("Sentiment at a glance")
-    left, right = st.columns(2)
-    with left, st.container(border=True):
-        st.markdown("**Sentiment distribution**")
-        st.caption("SENTIMENT ANALYTICS")
-        st.info("Open Sentiment Analytics after scoring to explore label shares, compound scores, and VADER components.")
-    with right, st.container(border=True):
-        st.markdown("**Sentiment over time**")
-        st.caption("SENTIMENT ANALYTICS")
-        st.info("Open Sentiment Analytics to compare trends, categories, and ratings when compatible metadata is available.")
-
-
-def render_reviews(data: pd.DataFrame | None) -> None:
-    """Preview raw sample rows without implying that scoring has happened."""
-    st.subheader("Review explorer")
-    st.caption("Inspect original review records. Run sentiment analysis from Overview. Search, filters, and CSV downloads are available in Review Explorer.")
-    if data is None:
-        with st.container(border=True):
-            st.markdown("**Your customer stories will appear here**")
-            st.write("Load the fictional sample dataset from the sidebar to preview the review table.")
-    else:
-        st.dataframe(data.head(PREVIEW_ROWS), hide_index=True, width="stretch")
-        st.caption(f"{format_count(len(data))} original records · Preview limited to {PREVIEW_ROWS} rows · Original data is preserved.")
+def render_reviews(data: pd.DataFrame) -> None:
+    """Show a bounded preview of the original dataset."""
+    st.subheader("Dataset preview")
+    st.dataframe(data.head(PREVIEW_ROWS), hide_index=True, width="stretch")
+    st.caption(f"{format_count(len(data))} reviews · Showing up to {PREVIEW_ROWS} rows. Original values are preserved.")
 
 
 def metric_cards(values: dict) -> None:
     """Render compact profiling and review-quality metrics."""
-    for column, (label, value) in zip(st.columns(len(values)), values.items()):
-        with column, st.container(border=True):
-            st.metric(label, format_count(value) if isinstance(value, int) else value)
+    items = list(values.items())
+    for start in range(0, len(items), 3):
+        group = items[start:start + 3]
+        for column, (label, value) in zip(st.columns(len(group)), group):
+            with column, st.container(border=True):
+                st.metric(label, format_count(value) if isinstance(value, int) else value)
 
 
 def render_loading() -> None:
@@ -112,8 +100,8 @@ def render_loading() -> None:
     st.subheader("Dataset setup")
     source = st.radio("Dataset source", ("Upload CSV", "Use sample dataset"), horizontal=True)
     if source == "Use sample dataset":
-        if st.button("Use sample dataset"):
-            load_sample()
+        if st.button("Use sample dataset") and load_sample():
+            st.rerun()
     else:
         uploaded = st.file_uploader("Upload a CSV dataset", type=["csv"], max_upload_size=MAX_UPLOAD_BYTES // 1024**2,
                                     help=f"UTF-8 CSV; up to {MAX_UPLOAD_BYTES // 1024**2} MB and {MAX_DATASET_ROWS:,} rows.")
@@ -123,8 +111,9 @@ def render_loading() -> None:
                 st.info("This dataset is already loaded; your review selection has been retained.")
             else:
                 try:
-                    data = read_csv_safely(uploaded)
-                    set_dataset(st.session_state, data, uploaded.name, identity)
+                    with st.spinner("Loading and validating CSV…"):
+                        data = read_csv_safely(uploaded)
+                        set_dataset(st.session_state, data, uploaded.name, identity)
                     st.rerun()
                 except DataValidationError as exc:
                     st.error(str(exc))
@@ -146,6 +135,7 @@ def render_setup(data: pd.DataFrame) -> None:
     column = st.selectbox("Select review text column", options,
                           index=options.index(selected) if selected in options else None,
                           placeholder="Choose a column containing customer feedback",
+                          help="Choose the column containing written reviews. Text columns appear first. Changing this selection clears previous analysis.",
                           key=f"review_selector_{st.session_state.get('dataset_revision', 0)}")
     reset_review_selection(st.session_state, column)
     if column is None:
@@ -159,10 +149,10 @@ def render_setup(data: pd.DataFrame) -> None:
     unusable = len(data) - prepared.quality["Valid Reviews"]
     st.caption(f"Reviews require at least {MIN_REVIEW_LENGTH} trimmed characters. Numeric-only values are not review text.")
     if unusable:
-        st.warning(f"{unusable:,} rows are unusable. All records are retained with a status; no rows have been removed.")
-    if prepared.quality["Valid Reviews"]:
+        st.warning(f"{unusable:,} reviews will be excluded from analysis. All rows remain available with a review-quality status.")
+    if prepared.quality["Valid Reviews"] and st.session_state.get("analysis") is None:
         st.success("Review data is prepared. Use Analyze Sentiment below to score valid reviews.")
-    else:
+    elif not prepared.quality["Valid Reviews"]:
         st.error("This column has no usable reviews. Select another column or load another dataset.")
     with st.expander("Inspect prepared reviews and row status"):
         st.dataframe(prepared.data.head(PREVIEW_ROWS), hide_index=True, width="stretch")
@@ -233,7 +223,8 @@ def main() -> None:
     st.write(TAGLINE)
     st.divider()
     if page == "Overview":
-        st.subheader("Understand the voice of your customers")
+        st.subheader("Overview")
+        st.write("Load a dataset, select your review column, check review quality, then analyze sentiment.")
         render_loading()
         data = st.session_state.get("dataset")
         kpi_area = st.container()
@@ -244,22 +235,19 @@ def main() -> None:
             render_analysis_action()
         with kpi_area:
             render_kpis(data)
-        render_analytics()
+        if st.session_state.get("analysis") is not None:
+            st.info("Explore results using Sentiment Analytics, Text Insights, or Review Explorer in the sidebar.")
     elif page == "Sentiment Analytics":
         render_analytics_page()
     elif page == "Text Insights":
         render_text_insights_page()
     elif page == "About":
-        st.subheader("About this project")
-        st.write("A portfolio project for exploring customer experience through review data.")
-        st.markdown("**Available now:** CSV uploads, sample data, dataset profiling, explicit review-column selection, review quality checks, explicit VADER sentiment scoring, an interactive sentiment analytics dashboard, and keyword/phrase insights.")
-        st.markdown("**Available now:** review search, filters, pagination, and full/filtered CSV downloads.")
-        st.caption("No external paid API, LLM, authentication, or database is used.")
+        render_about_page()
     elif page == "Review Explorer":
         render_review_explorer_page()
 
     st.divider()
-    st.caption("Phase 6 · Review explorer and export")
+    st.caption("Customer Feedback Sentiment Intelligence · Methodology and data handling in About")
 
 
 if __name__ == "__main__":

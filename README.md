@@ -2,251 +2,165 @@
 
 Transform customer feedback into actionable sentiment insights.
 
-A Python and Streamlit portfolio project for exploring customer review data. **Phase 6 adds a searchable, filterable Review Explorer and in-memory CSV downloads to the existing sentiment and text-insights workflow.** Sentiment comes from review text only; no machine-learning training or LLM is used.
+## Overview
 
-## Available in Phase 6
+A Streamlit workspace for turning customer-review CSV files into understandable sentiment summaries. Validate your data, choose the review column, run offline VADER analysis, and investigate the individual reviews behind trends. A fictional 20-review sample demonstrates the complete workflow without an upload.
 
-- Wide dashboard with sidebar navigation: Overview, Sentiment Analytics, Text Insights, Review Explorer, and About.
-- Helpful empty states, actual sentiment KPIs after analysis, and real Plotly analytics in the Sentiment Analytics page.
-- Load and clear a bundled fictional sample dataset; preview original records and their count.
-- Reusable CSV validation for file extensions, size, encoding, headers, row consistency, and empty datasets, with readable errors.
-- CSV upload and switching between uploaded and sample datasets without restarting.
-- Dataset profiling: row/column counts, missing cells, duplicate rows, and estimated dataframe memory.
-- Explicit review-column selection with text-like columns listed first; no silent selection.
-- Review quality summaries and prepared review text with per-row status, preserving all original data.
-- Explicit VADER analysis with Positive, Neutral, and Negative labels, component scores, compound scores, and a bounded colored preview.
-- Overall and sentiment-specific keywords, frequent adjacent phrases, corpus statistics, and strongest/most neutral review signals.
-- Paginated review cards with literal search, sentiment/metadata filters, stable sorting, and full or filtered CSV downloads.
-- Central configuration, persistent session results, and automated loader, preparation, sentiment, and UI tests.
+## Key features
 
-## Scope
+- **CSV upload and validation:** friendly errors, bounded file sizes, dataset profiling, and previews.
+- **Review quality checks:** identify missing, blank, non-text, numeric-only, and very short reviews without deleting records.
+- **VADER sentiment analysis:** Positive, Neutral, and Negative labels with compound and component scores.
+- **Sentiment analytics:** distributions, time-based trends, category comparisons, and rating–sentiment comparisons.
+- **Text insights:** keyword and two-word phrase frequencies, Positive/Negative mentions, and example reviews.
+- **Review Explorer:** literal text search, sentiment and metadata filters, sorting, and pagination.
+- **CSV export:** full results or the current filtered and sorted selection, generated in memory.
 
-Review search, filtering, pagination, and CSV export are implemented. PDF reporting and advanced AI summarization are not implemented. No paid API, LLM, authentication, or database is used.
+## How it works
+
+```text
+Upload CSV (or load sample)
+   ↓
+Select Review Column
+   ↓
+Validate & Prepare Reviews
+   ↓
+Run VADER Sentiment Analysis
+   ↓
+Explore Analytics & Text Insights
+   ↓
+Filter Reviews
+   ↓
+Export Results
+```
+
+Overview owns dataset setup and analysis. The other pages reuse session results. Changing the dataset or review column clears incompatible analysis and downloads. Navigation preserves the dataset, selection, and analysis; page-specific filter widgets may reset when navigating away.
 
 ## Tech stack
 
-Python 3.12+; Streamlit; Pandas; NumPy; Plotly; NLTK; VADER Sentiment (`vaderSentiment`); scikit-learn; python-dotenv.
+| Tool | Purpose |
+| --- | --- |
+| Python 3.12 | Tested runtime |
+| Streamlit | Application and session state |
+| Pandas / NumPy | Data preparation, summaries, and numeric checks |
+| Plotly | Interactive charts |
+| vaderSentiment | Bundled sentiment lexicon and scoring rules |
+| scikit-learn | Bundled English stopword list |
+| python-dotenv | Optional local settings |
+| pytest / unittest / Streamlit AppTest | Automated validation |
 
-VADER uses the already-installed `vaderSentiment` package. NLTK and other analytics libraries remain available for later work; no NLTK download is needed. Requirements specify compatible version ranges rather than a fully locked environment.
+No API keys, model downloads, database, or paid service are needed. NLTK is not required.
 
 ## Project structure
 
 ```text
-customer-feedback-sentiment-intelligence/
-├── app.py
-├── src/
-│   ├── __init__.py
-│   ├── config.py
-│   ├── data/
-│   │   ├── __init__.py
-│   │   ├── exporter.py
-│   │   ├── loader.py
-│   │   ├── preprocessor.py
-│   │   └── session.py
-│   ├── sentiment/
-│   │   ├── __init__.py
-│   │   └── analyzer.py
-│   ├── analytics/
-│   │   ├── __init__.py
-│   │   ├── review_explorer.py
-│   │   ├── sentiment_metrics.py
-│   │   └── text_insights.py
-│   ├── visualization/
-│   │   ├── __init__.py
-│   │   ├── charts.py
-│   │   └── text_charts.py
-│   ├── ui/
-│   │   ├── __init__.py
-│   │   ├── analytics.py
-│   │   ├── review_explorer.py
-│   │   └── text_insights.py
-│   └── utils/
-│       ├── __init__.py
-│       └── helpers.py
-├── data/
-│   └── sample_customer_feedback.csv
-├── assets/
-│   └── .gitkeep
-├── tests/
-│   ├── __init__.py
-│   ├── test_app.py
-│   ├── test_loader.py
-│   ├── test_phase2.py
-│   ├── test_sentiment.py
-│   ├── test_analytics.py
-│   ├── test_text_insights.py
-│   └── test_review_explorer.py
-├── .streamlit/
-│   └── config.toml
-├── .env.example
-├── .gitignore
-├── requirements.txt
-├── requirements-dev.txt
-└── README.md
+app.py                         # Entry point and Overview workflow
+src/
+  config.py                    # Identity, limits, thresholds, presentation
+  data/
+    loader.py                  # Strict CSV validation
+    preprocessor.py            # Review preparation and quality checks
+    session.py                 # Dataset and analysis lifecycle
+    exporter.py                # In-memory CSV output
+  sentiment/analyzer.py        # Offline VADER analysis
+  analytics/
+    sentiment_metrics.py       # Aggregations and metadata detection
+    text_insights.py            # Keywords, phrases, example reviews
+    review_explorer.py         # Filtering, sorting, pagination
+  visualization/
+    charts.py                  # Sentiment figures
+    text_charts.py             # Frequency figures
+  ui/
+    analytics.py
+    text_insights.py
+    review_explorer.py
+    about.py
+  utils/helpers.py             # Display formatting
+data/sample_customer_feedback.csv
+ tests/                        # Unit and application regression tests
+.streamlit/config.toml         # Theme, error display, upload ceiling
+requirements.txt
+requirements-dev.txt
+.env.example                   # Optional upload-limit setting
 ```
 
-The data layer has no Streamlit dependency. The sentiment service owns offline scoring and output preservation; analytics aggregation, Plotly visualization, and Streamlit page rendering are separated into their own modules. `app.py` owns the interface and session state; `src/config.py` owns shared application constants. Native Streamlit theming lives in `.streamlit/config.toml`.
+## Data validation and limits
 
-## Local installation
+Only comma-separated UTF-8 CSV files (including a UTF-8 BOM) are supported. Validation rejects unreadable or malformed files, duplicate/blank headers, inconsistent row widths, empty data, and datasets containing only empty columns. Error messages do not expose Python exceptions.
 
-Use Python 3.12 or newer. Python 3.12 is the verified baseline. From the repository directory on macOS/Linux:
+Default limits are **10 MB**, **100,000 rows**, and **200 columns**. Previews show at most **100 rows**; Review Explorer pages contain 10, 25, or 50 reviews. The optional `FEEDBACK_MAX_UPLOAD_MB` setting accepts 1–100 MB; keep `.streamlit/config.toml`'s server upload ceiling consistent if increasing it. The CSV parser also has a per-field safety limit; unusually long single-cell text may be rejected. Limits reduce risk but do not guarantee every accepted dataset fits the host's memory.
+
+Choose a review column explicitly; text columns appear first. Preparation copies all source rows and columns, trims valid strings, and adds `prepared_review` and `review_status`. Reviews need at least three trimmed characters; numeric-only text is excluded. Original values remain unchanged. Generated names receive leading underscores when needed to preserve existing columns.
+
+Unusable reviews retain the label **Not analyzed** and empty scores. They are excluded from sentiment and text aggregates, remain searchable/exportable in Review Explorer, and are never silently removed. Duplicate reviews are retained and contribute separately to counts.
+
+## Sentiment methodology
+
+VADER is a lexicon and rule-based model. It scores the selected text only; ratings do not change sentiment.
+
+| Output | Meaning |
+| --- | --- |
+| Compound Score | Normalized overall sentiment from −1 to +1 |
+| Positive | Compound Score ≥ 0.05 |
+| Negative | Compound Score ≤ −0.05 |
+| Neutral | −0.05 < Compound Score < 0.05 |
+| Component scores | Positive, Neutral, and Negative proportions; not confidence probabilities |
+
+The package includes its lexicon, so scoring requires no runtime network access. Analysis runs only after the user presses **Analyze Sentiment**.
+
+## Analytics
+
+Sentiment shares use analyzed reviews in the selected scope. Compound and component distributions show the score balance. Date trends use parseable dates normalized to UTC, with day/week/month grouping as available; weeks start Monday. Missing dates are excluded from trend charts. Category charts show up to 15 groups by review volume, with missing values grouped separately.
+
+Rating–sentiment mismatch highlights 4–5 star ratings with Negative text and 1–2 star ratings with Positive text, only when the source resembles an integral 1–5 scale. It does not imply fraud or an error. Metadata detection is heuristic and may not recognize every dataset schema.
+
+Text Insights uses Unicode tokenization and English stopwords while retaining basic negation. Keyword and bigram charts rank by reviews mentioning a term, then occurrences. Repeated mentions in one review increase word frequency but count once toward review frequency. Scopes with fewer than 30 reviews require one mention; larger scopes require two reviews. Example reviews are ranked by sentiment score, not statistically sampled.
+
+Review Explorer combines literal, case-insensitive search with sentiment, compound, category, rating, and date filters. Selected Not analyzed reviews bypass the compound filter; active date/rating filters exclude invalid metadata. Exports include all matching pages and omit the dataframe index. CSV preserves original text, including spreadsheet formula-like strings; interpret external spreadsheet imports accordingly.
+
+## Run locally
 
 ```bash
-python3 --version
-python3 -m venv .venv
+git clone git@github.com:lakshithlokesh06/customer-feedback-sentiment-intelligence.git
+cd customer-feedback-sentiment-intelligence
+python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-If `python3` is older than 3.12, use `python3.12 -m venv .venv` instead. Open the local URL printed by Streamlit (normally `http://localhost:8501`). Stop it with Ctrl+C.
+Open the local URL shown by Streamlit. No `.env` file is required. To try the app, load the sample from the sidebar, select `review` in Overview, and click **Analyze Sentiment**.
 
-No environment file is required. Optionally copy `.env.example` to `.env` and set `FEEDBACK_MAX_UPLOAD_MB` (default 10; accepted range 1–100). This controls both the CSV uploader and reusable loader limit. The uploader overrides the fallback server limit in `.streamlit/config.toml`. Invalid environment values fall back to 10 MB.
-
-## Sample data
-
-`data/sample_customer_feedback.csv` contains 20 fictional reviews across four products, dated August 1–20, 2026. Columns are `review_id` (unique identifier), `review` (original text), `rating` (1–5), `date` (ISO date), and `product`. The text includes positive, negative, neutral, and mixed experiences. It has no sentiment labels or scores; ratings are not converted into sentiment.
-
-Use **Load sample dataset** in the sidebar to preview it. **Clear dataset** resets the session preview. A missing or invalid sample produces a friendly error. The generic loader accepts UTF-8 comma-delimited CSV files and binary file-like objects; it does not enforce the sample schema or select review columns. The app checks the sample's expected columns separately.
-
-## Upload and prepare a dataset
-
-1. Open **Overview** and choose **Upload CSV** or **Use sample dataset**.
-2. Select a CSV and press **Load uploaded CSV**, or press **Use sample dataset**. The sidebar sample shortcut remains available.
-3. Inspect profiling cards and the first 100 records.
-4. Explicitly choose **Select review text column**. Text-like columns appear first; none is chosen automatically.
-5. Review quality counts and expand the prepared preview to inspect per-row status.
-6. Press **Analyze Sentiment** when at least one valid review exists. A spinner displays while real processing runs.
-7. Inspect label counts, percentages (of analyzed rows only), and the first 100 sentiment results on Overview or Review Explorer.
-
-Choosing a source or file alone does not replace the active dataset: its load button does. The current source is displayed above its profile. Failed uploads preserve the previous valid dataset. Navigation preserves data and the selected column; loading a different dataset or clearing resets preparation. Re-loading the identical uploaded bytes keeps the current selection. Data stays in the current Streamlit session and is not saved to disk.
-
-### Validation and limits
-
-Only UTF-8 (including BOM), comma-delimited `.csv` files are supported. Validation checks input types, readable binary streams, file size, header names, duplicate headers (including surrounding-whitespace differences), consistent record widths, encoding, and usable data. Zero-row, zero-column, and wholly blank datasets are rejected with friendly messages. Pandas parses column types; mixed numeric/text columns may contain numeric strings, which review validation also detects.
-
-Limits are defined in `src/config.py`: **10 MB by default**, **100,000 data rows**, **200 columns**, and **100 preview rows**. Over-limit files are rejected with guidance; previews are capped, not the underlying accepted dataset. Fully blank records within a usable file are retained. CSV parser field-length restrictions also apply to unusually long individual cells. Missing-cell counts include whitespace-only cells; duplicate rows are reported without removal. Memory is an estimate for the original dataframe, not total process memory.
-
-### Review quality rules
-
-Prepared data is a separate copy containing every original row and column. Two additional columns hold trimmed review text and status (`prepared_review` and `review_status`; underscores are prefixed if those names already exist). Original review values are never overwritten.
-
-- `valid`: text containing at least three characters after trimming, excluding numeric-only strings.
-- `missing`: null value or an empty CSV cell.
-- `empty`: a blank or whitespace-only string.
-- `non_text`: numeric, boolean, other non-string values, or numeric-only strings.
-- `too_short`: nonblank text shorter than three characters.
-
-**Invalid Reviews** combines `non_text` and `too_short`; Missing and Empty are separate, mutually exclusive counts. Unusable records remain in the prepared dataset with a null prepared text and their reason. Common literal strings such as `NA` are preserved rather than treated as null automatically. No records are silently removed. A selected column with zero valid reviews displays an error and does not unlock the analytics placeholders. These checks are basic data-quality rules, not semantic or language analysis.
-
-## Sentiment engine and output
-
-`src/sentiment/analyzer.py` uses `vaderSentiment.SentimentIntensityAnalyzer` instead of the NLTK wrapper because the existing package bundles both its lexicon and emoji mappings. This provides offline initialization and emoji handling without downloading NLTK resources or committing downloaded artifacts. The analyzer is initialized lazily once per process and reused. If its resources cannot be read, the UI asks the user to reinstall project requirements; failed initialization can be retried and is not cached.
-
-Classification uses central constants in `src/config.py`:
-
-- Compound **≥ 0.05**: **Positive**.
-- Compound **≤ −0.05**: **Negative**.
-- Otherwise: **Neutral**.
-
-The new analyzed dataframe retains every original column, prepared column, row, index, and row order. It adds `sentiment_negative`, `sentiment_neutral`, `sentiment_positive`, `sentiment_compound`, and `sentiment_label`. Component scores describe negative/neutral/positive proportions; compound ranges from −1 to 1. Existing columns with those names are never overwritten: generated output names receive leading underscores, and the UI follows that mapping.
-
-Only rows marked `valid` are scored. Missing, blank, numeric/non-text, and too-short rows stay in place, with null numeric sentiment scores and **Not analyzed** labels. A valid review with no recognized sentiment can receive Neutral; that differs from an unusable review. Rating values are never used for classification.
-
-Scoring runs only on an explicit button click. Results live in the current session and survive navigation. Changing the selected review column, loading a new dataset, or clearing data invalidates results. Identical uploaded bytes keep the existing selection and analysis. Duplicate reviews are scored once within each analysis call, while every duplicate row is retained. Only the analyzer resource is shared across sessions; uploaded data, duplicate-text caches, and results are not globally cached. Failed scoring publishes no partial result; if a prior completed result exists, it remains available.
-
-### Sentiment limitations
-
-VADER is a rule/lexicon-based model primarily designed for English. Non-English text is accepted without a reliability claim. Sarcasm, context, domain-specific language, and mixed sentiment can be misclassified. Scores describe text sentiment, not factual correctness, human intent, or a calibrated probability. Case, punctuation, URLs, and emoji are passed through after Phase 2 whitespace trimming. Numeric-only text remains unusable under Phase 2 rules. Very short feedback (including a single emoji) can be excluded by the existing minimum length. Long reviews are supported within existing CSV limits, but large amounts of unique text take longer to process. There is no topic modeling, aspect analysis, model training, or LLM functionality in this phase.
-
-## Sentiment Analytics dashboard
-
-After loading a dataset, selecting its review column, and clicking **Analyze Sentiment**, open **Sentiment Analytics**. The page never triggers scoring automatically. It provides:
-
-- Six KPIs: total source reviews, filtered analyzed reviews, three sentiment counts, and mean compound score.
-- Sentiment counts and percentages, a compound histogram with the unchanged ±0.05 boundaries, and mean VADER component scores.
-- Optional date trends, category comparisons, and rating comparisons when compatible metadata exists.
-- A sentiment-label multiselect and **Reset filters**. Every chart follows the selected labels; original data is unchanged. Empty selections show a helpful message.
-
-`Not analyzed` rows are excluded from counts, percentages, and averages; their exclusion count remains visible. Total Reviews is always the unfiltered source row count. Analytics frames and metadata suggestions are reused within the current session until analysis changes; no uploaded data is cached globally.
-
-### Optional metadata handling
-
-**Dates:** Non-numeric columns with at least 50% parseable date values are offered in a selector, without requiring a column named `date`. Dates normalize to UTC. Invalid/missing dates are omitted only from the trend chart, with a visible count. Day grouping is always available; Week appears for spans of at least seven days, Month for at least 28 days. Weekly buckets begin Monday. Ambiguous date strings follow Pandas parsing conventions; ISO dates are recommended. Numeric timestamps are not auto-interpreted.
-
-**Categories:** Low-cardinality non-numeric columns (at most 50 distinct values) are suggested, excluding selected review text, preparation/output fields, date columns, and obvious ID/text names. Unique-valued columns are omitted unless they have five or fewer categories. The chart and compact table show count, sentiment shares, and mean compound. Up to 15 groups appear, selected by highest analyzed volume and alphabetical ties; missing values have a separate group. These heuristics can omit unusual but meaningful metadata.
-
-**Ratings:** Numeric or numeric-like columns whose names contain `rating`, `stars`, or `score`, with at most 20 distinct values, are offered. A stacked chart compares text sentiment across rating values. Missing/non-numeric ratings are omitted; ratings never change sentiment labels. Mismatch analytics assumes a 1–5 scale only when all numeric ratings across the entire source dataset are integral and within 1–5. A mismatch is rating 4–5 with Negative text, or rating 1–2 with Positive text. Rating 3 and Neutral text do not trigger a mismatch. Other scales skip the mismatch metric with an explanation. A subset of an unknown scale can resemble 1–5, so the UI explicitly labels this assumption. Mismatches are descriptive, not claims of fraud or error.
-
-Charts use consistent semantic colors and responsive full-width sizing. KPIs use two rows of three cards rather than a six-card-wide layout. Semantic topic extraction remains unimplemented; lightweight lexical insights are available in Text Insights.
-
-## Text Insights
-
-Run sentiment analysis in Overview, then open **Text Insights**. This page does not trigger VADER or change stored text, scores, or labels. Choose **All analyzed reviews**, **Positive**, **Neutral**, or **Negative**. Display options control the number of keywords (default 15) and phrases (default 10), each within 5–20.
-
-### Preprocessing and metrics
-
-The pipeline lowercases temporary text, removes obvious HTTP(S)/www URLs, tokenizes Unicode alphabetic words, and excludes numbers, punctuation, isolated symbols, and tokens shorter than two characters. Common apostrophe contractions are expanded to preserve negation. It uses scikit-learn's bundled English stopwords with **not**, **no**, and **never** retained. No network resource download, new dependency, stemming, or lemmatization is required. The small custom supplement removes **just** and **really** as generic filler/emphasis; customer and product vocabulary is not removed.
-
-Keyword charts rank terms by **review frequency**, then raw occurrence count, then alphabetical order. Repeating a word ten times in one review contributes ten occurrences but only one review mention. Hover details include both counts and the percentage of reviews in the current sentiment scope containing the term. Duplicate dataset rows remain separate review documents, consistently with previous phases.
-
-Minimum document frequency is one for scopes with fewer than 30 reviews, and two for scopes of 30 or more. These thresholds and display limits live in `src/config.py`; each sentiment subset uses its own scope size. Empty subsets, stopword-only text, or phrases below the threshold display helpful empty states rather than fabricated results.
-
-Bigrams are adjacent meaningful words from the source sequence, such as **battery life**. Removed stopwords, punctuation, URLs, numbers, and symbols break adjacency: the pipeline does not join distant words or cross sentence boundaries. Inflected forms remain separate words. This is lexical phrase counting, not semantic topic modeling.
-
-### Praise, concerns, and examples
-
-The All scope shows **What customers appreciate** from Positive reviews and **Common customer concerns** from Negative reviews, with keywords and phrases for each. Choosing one sentiment focuses charts and representative examples on that class. Frequent words in these subsets are not confirmed praise, defects, business failures, or root causes; VADER labels and simple word counts can miss context and negation scope.
-
-Representative examples are limited to three original reviews. **Strongest Positive Signals** ranks Positive reviews by descending compound, **Strongest Negative Signals** ranks Negative reviews by ascending compound, and **Most Neutral Signals** ranks Neutral reviews by absolute compound closest to zero. Equal scores retain source order. Original text, label, compound, and available product/rating/date metadata are displayed. These examples are selected extremes or neutral signals, not a statistically representative sample.
-
-The compact corpus summary shows meaningful-word occurrences, unique keywords, and average/median words per review. Review length counts alphabetic words before stopword filtering, after URL removal and contraction expansion. Corpus statistics describe the selected scope and do not imply quality. Only analyzed rows contribute; unusable records remain in the source.
-
-Tokenization is reused for duplicate text during corpus construction. Aggregated results are held only in the current session and reused when changing controls or navigation; changing the dataset, selected review column, or analysis invalidates them. No uploaded text is cached globally.
-
-### Text limitations
-
-Text insights are primarily designed for English. Non-English and emoji-heavy text can be processed without a language-support claim; emoji and symbols do not become keywords. Very short or entirely uninformative reviews may yield no terms. Stopword filtering can remove words useful in some domains. There is no semantic topic modeling, aspect-based sentiment, transformer NLP, LLM summarization, automated root-cause detection, or word cloud. CSV downloads are available in Review Explorer.
-
-## Review Explorer and CSV export
-
-Load data, select the review column, and run **Analyze Sentiment** in Overview before opening **Review Explorer**. The explorer never reruns scoring. It shows matching counts, class counts, and average compound (excluding Not analyzed), followed by paginated cards with original text, preparation status, all VADER scores where available, and optional metadata. Source dataframe indices are shown for traceability and are not inserted into CSV exports.
-
-### Search, filters, and sorting
-
-- Case-insensitive, literal substring search uses the original review text. Regex-like characters are treated literally; whitespace-only queries do not filter.
-- Sentiment multiselect supports Positive, Neutral, Negative, and Not analyzed. All are selected by default; clearing the selection yields no matches.
-- The optional compound slider restricts analyzed rows. Selected **Not analyzed** rows bypass only this range because their scores are null; all other active filters still apply.
-- Up to two metadata columns can be filtered simultaneously, using Phase 4 category suggestions. Each supports selected values and a separate missing-value checkbox, so a literal category called “Missing” remains distinct from null values.
-- Compatible rating columns support observed numeric ranges, including scales other than 1–5. Missing/non-numeric ratings are excluded only when the rating filter is active. Rating values never change text sentiment.
-- Compatible date columns support inclusive date ranges in UTC. Missing/invalid dates are excluded only when date filtering is active. An incomplete date range is not applied until its end date is selected.
-- Stable sorting includes original order, highest/lowest compound, and closest to zero. Compatible selected metadata adds newest/oldest and rating high-to-low/low-to-high. Null sorting values appear last; ties retain source order.
-
-**Reset filters** clears search, label selection, score/metadata/date/rating filters, sorting, page size, page number, and prepared download bytes while keeping the dataset and analysis. Loading a dataset, changing the review column, or replacing analysis resets incompatible explorer state. Widget values may return to defaults after navigating away and back; analysis remains available.
-
-Cards are limited to **10, 25, or 50 per page** (default 10). Filter/sort/page-size changes reset to page 1, and page values are clamped safely after result counts shrink. Empty matches show an explicit empty state and disable filtered export preparation. Not analyzed cards retain original values and preparation status without invented scores.
-
-### Downloads
-
-Expand **CSV downloads**, then explicitly prepare the desired file:
-
-- **Prepare full analyzed CSV → Download full analyzed CSV** creates `customer_feedback_sentiment_analysis.csv`, preserving every source-result row in original order, every original/preparation column, and the actual generated sentiment column names (including collision-safe names).
-- **Prepare filtered CSV → Download filtered CSV** creates `customer_feedback_filtered_reviews.csv`, containing all matching rows across all pages in the current sort order.
-
-CSV conversion happens only on preparation, not on each widget rerun. Bytes stay in the current session; no exports are written to the repository and the uploaded file is never overwritten. Changing filters or sorting invalidates the prepared filtered file, preventing stale downloads. Pagination alone does not change the filtered export. Output uses UTF-8, standard CSV quoting, numeric score values, and blank null fields, without an added index. Original text is preserved, including any spreadsheet formula-like content; the exporter does not sanitize or transform it. CSV round trips cannot preserve all dataframe type information or distinguish an empty string from every form of null.
-
-Optional metadata filters depend on Phase 4 heuristics, so unusual column names or high-cardinality categories may not be offered. There is no PDF reporting, advanced AI summarization, or functionality beyond Phase 6.
-
-## Validation
-
-Install the development dependency (pytest) and run:
+## Testing
 
 ```bash
 python -m pip install -r requirements-dev.txt
 python -m compileall .
 python -m pytest
-python -m unittest discover -s tests -v
-python -m streamlit run app.py --server.headless true
+python -m unittest discover -s tests
+python -m pip check
+git diff --check
 ```
 
-`compileall .` also traverses the ignored virtual environment; for a faster project-only check use `python -m compileall -q app.py src tests`. Tests retain the Phase 1 checks and cover input errors, row and column limits, quality categories, original-data preservation, source switching, explicit selection, and navigation persistence. Sentiment tests cover actual positive/neutral/negative scoring, exact threshold boundaries, unusable rows, duplicate text, emphasis, emoji, multilingual/long text, column collisions, resource failures, and session invalidation. Text-insight tests cover cleaning, negation, URLs, counts/coverage, phrase boundaries, dynamic thresholds, sentiment scopes, representative ordering, Unicode, preservation, and session reuse. Review Explorer tests cover literal search, class/compound/category/rating/date filters, stable sorting, pagination, resets, Unicode/full/filtered CSV preservation, collision-safe columns, and download preparation. User-facing tracebacks are disabled; unexpected loading errors are logged to the server console.
+Tests cover CSV and review validation, source preservation, sentiment boundaries and failures, analytics, keywords, filtering, exports, and session lifecycle. AppTest exercises the main workflow without a browser.
+
+## Deployment readiness
+
+Use `app.py` as the entry point and `requirements.txt` for dependencies. Sample resources resolve relative to the repository, not a developer's machine. Core functionality requires no secrets, external NLP downloads, or writable export directory.
+
+For Streamlit Community Cloud, select this repository, `main`, and `app.py`; select the tested **Python 3.12** runtime in Advanced settings. Community Cloud configures Python through that UI; no speculative runtime configuration file is included. See the [official deployment guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy). This repository does not claim an active deployment or CI service.
+
+Uploaded files are processed within the running application session. Exports are generated in memory. The application does not intentionally persist uploaded datasets to a database. Session lifetime and infrastructure behavior depend on the hosting environment. Clearing data resets app state; it is not a guarantee of secure deletion from host memory.
+
+## Limitations
+
+- VADER is primarily English-focused. Sarcasm, specialized language, and context can be misinterpreted.
+- Lexicon sentiment is not human understanding or proof of factual correctness.
+- Keywords identify mentions, not confirmed praise, defects, or root causes.
+- Metadata detection uses heuristics; verify suggested fields and date interpretation.
+- Large or unusually verbose datasets may require more memory and processing time than a small hosting instance provides.
+- Session state is temporary; export results you need to keep. There are no user accounts or durable storage.
+
+## Future possibilities
+
+Aspect-based sentiment, multilingual models, transformer comparisons, topic clustering, and PDF reports are potential future directions. They are not implemented.

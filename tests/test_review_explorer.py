@@ -99,9 +99,9 @@ def ready_app():
 def test_explorer_states_and_workflow():
     app = AppTest.from_file(str(PROJECT_ROOT / 'app.py')).run()
     app.sidebar.radio[0].set_value('Review Explorer').run()
-    assert app.info[0].value == 'Load a dataset to explore customer reviews.'
+    assert app.info[0].value == 'Load a dataset and select a review column to begin analysis.'
     app.sidebar.button[0].click().run()
-    assert app.info[0].value == 'Select the review text column to continue.'
+    assert app.info[0].value == 'Load a dataset and select a review column to begin analysis.'
     app.sidebar.radio[0].set_value('Overview').run()
     app.selectbox[0].select('review').run()
     app.sidebar.radio[0].set_value('Review Explorer').run()
